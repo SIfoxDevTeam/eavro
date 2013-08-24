@@ -19,6 +19,8 @@ encode(double, Double) when is_float(Double) ->
     <<Double:64/little-float>>;
 encode(string, Data) when is_binary(Data) ->
     [encode(long, iolist_size(Data)), Data];
+encode(bytes, Data) when is_binary(Data) ->
+    [encode(long, iolist_size(Data)), Data];
 encode(boolean, true) -> <<1>>;
 encode(boolean, false) -> <<0>>;
 encode(null, _Any) -> <<>>;
