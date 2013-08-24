@@ -36,7 +36,8 @@ Schema example
 Usage
 -----
 
-<pre>
+```erlang
+
 Erlang R16B01 (erts-5.10.2) [source] [64-bit] [smp:2:2] [async-threads:10] [kernel-poll:false]
 
 Eshell V5.10.2  (abort with ^G)
@@ -47,13 +48,14 @@ Eshell V5.10.2  (abort with ^G)
               {<<"verified">>,boolean}]}
 2> eavro:encode(Schema, [<<"John">>, 23, true]).
 <<8,74,111,104,110,46,1>>
-</pre>
+```
 
 ToDo
 ----
 
  * Add decode functions
  * Add specs, tests and documentation
+ * Add data writer/reader functions
  * Implement complex types: enums, arrays, maps, unions and fixed.
 
 License
