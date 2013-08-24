@@ -1,5 +1,7 @@
 REBAR = ./rebar
 
+.PHONY: test
+
 compile:
 	@$(REBAR) compile
 
@@ -10,4 +12,4 @@ clean:
 	@$(REBAR) clean
 
 test:
-	@$(REBAR) eunit
+	@$(REBAR) xref eunit skip_deps=true
