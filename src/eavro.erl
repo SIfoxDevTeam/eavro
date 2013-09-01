@@ -33,6 +33,7 @@ data_type(<<"long">>) -> long;
 data_type(<<"float">>) -> float;
 data_type(<<"double">>) -> double;
 data_type(<<"string">>) -> string;
+data_type(<<"binary">>) -> string;
 data_type(_Other) ->
     {error, ebadtype}.
 
