@@ -1,7 +1,13 @@
 -module(eavro_codec).
 
+
 %% API
--export([encode/2]).
+-export([ encode/2, 
+          decode/2, 
+          decode/3 ]).
+
+-export([ varint_encode/1, 
+          varint_decode/2 ]).
 
 -include("eavro.hrl").
 
@@ -27,7 +33,68 @@ encode(null, _Any) -> <<>>;
 
 %% complex data types
 encode(#avro_record{fields = Fields}, Data) ->
-    [encode(Type, Value) || {{_Name, Type}, Value} <- lists:zip(Fields, Data)].
+    [encode(Type, Value) || {{_Name, Type}, Value} <- lists:zip(Fields, Data)];
+encode(#avro_enum{symbols = Symbols}, Data) ->
+    ZeroBasedIndex = index_of(Data, Symbols) - 1,
+    encode(int,ZeroBasedIndex).
+
+index_of(Item, List) -> index_of(Item, List, 1).
+
+index_of(_, [], _)              -> exit(not_found);
+index_of(Item, [Item|_], Index) -> Index;
+index_of(Item, [_|Tl], Index)   -> index_of(Item, Tl, Index+1).
+
+%%
+%% Decoding functins
+%%
+
+decode(Type, Buff ) ->
+    decode(Type, Buff, undefined).
+
+-spec decode( Type :: avro_type(), 
+              Buff :: binary() | iolist(), 
+              Hook :: undefined | decode_hook() ) -> 
+    { Value :: term(), Buff :: binary()}.
+
+decode(Type, Buff, Hook) when is_list(Buff) ->
+    decode(Type, iolist_to_binary(Buff), Hook);
+decode(#avro_record{fields = Fields} = Type, Buff, Hook) ->
+    {FieldsValues, Buff1} = 
+        lists:foldl(
+            fun({_FName, FType}, {Vals0,Buff0}) ->
+                {Val, Buff1} = decode(FType, Buff0, Hook),
+                {[ Val | Vals0 ], Buff1}
+            end, {[], Buff}, Fields),
+    { decode_hook(Hook, Type, lists:reverse(FieldsValues) ), Buff1};
+decode(#avro_enum{symbols=Symbols} = Type, Buff, Hook) ->
+    {ZeroBasedIndex, Buff1} = decode(int, Buff, Hook),
+    Symbol = lists:nth(ZeroBasedIndex + 1, Symbols),
+    { decode_hook(Hook, Type, Symbol ), Buff1};
+decode(Type, Buff, Hook) when Type == string orelse Type == bytes ->
+    {ByteSize, Buff1} = decode(long, Buff, undefined),
+    <<String:ByteSize/binary, Buff2/binary>> = Buff1,
+    {decode_hook(Hook, Type, String), Buff2};
+decode(int = Type, Buff, Hook) ->
+    {<<Z:32>>, Buff1} = varint_decode(int, Buff),
+    Int = zigzag_decode(int, Z),
+    {decode_hook(Hook, Type, Int), Buff1};
+decode(long = Type, Buff, Hook) ->
+    {<<Z:64>>, Buff1} = varint_decode(long, Buff),
+    Long = zigzag_decode(long, Z),
+    {decode_hook(Hook, Type, Long), Buff1};
+decode(float = Type, <<Float:32/little-float,Buff/binary>>, Hook) ->
+    {decode_hook(Hook, Type, Float), Buff};
+decode(double = Type, <<Double:64/little-float,Buff/binary>>, Hook) ->
+    {decode_hook(Hook, Type, Double), Buff};
+decode(boolean = Type, <<0:7,B:1,Buff/binary>>, Hook) ->
+    {decode_hook(Hook, Type, case B of 0 -> false; 1 -> true end), Buff};
+decode(null = Type, Buff, Hook) ->
+    {decode_hook(Hook, Type, <<>>), Buff}.
+
+decode_hook(undefined, _Type, Val) ->
+    Val;
+decode_hook(Hook, Type, Val) when is_function(Hook,2) ->
+    Hook(Type, Val).
 
 %% Internal functions
 
@@ -80,3 +147,24 @@ varint_encode(<<0:1, B1:7, B2:7, B3:7, B4:7, B5:7, B6:7, B7:7, B8:7, B9:7>>) ->
     <<1:1, B9:7, 1:1, B8:7, 1:1, B7:7, 1:1, B6:7, 1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 1:1, B2:7, B1>>;
 varint_encode(<<B1:1, B2:7, B3:7, B4:7, B5:7, B6:7, B7:7, B8:7, B9:7, B10:7>>) ->
     <<1:1, B10:7, 1:1, B9:7, 1:1, B8:7, 1:1, B7:7, 1:1, B6:7, 1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 1:1, B2:7, B1>>.
+
+varint_decode(int, <<1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 1:1, B2:7, 0:4, B1:4, Bytes/binary>>) ->
+    {<<B1:4, B2:7, B3:7, B4:7, B5:7>>, Bytes};
+varint_decode(long, <<1:1, B10:7, 1:1, B9:7, 1:1, B8:7, 1:1, B7:7, 
+                      1:1, B6:7,  1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 
+                      1:1, B2:7, 0:7, B1:1, Bytes/binary>>) ->
+    {<<B1:1, B2:7, B3:7, B4:7, B5:7, B6:7, B7:7, B8:7, B9:7, B10:7>>, Bytes};
+varint_decode(Type, Bytes) ->
+    {DecBits, RestBytes} = varint_decode(Bytes),
+    Base = case Type of
+        int  -> 32;
+        long -> 64
+    end,
+    LeadingZeroBits = Base - bit_size(DecBits),
+    {<<0:LeadingZeroBits/integer, DecBits/bitstring>>, RestBytes}.
+
+varint_decode(<<0:1, X:7, Bytes/binary>>) ->
+    {<<X:7>>, Bytes};
+varint_decode(<<1:1,X:7, Bytes/binary>>) ->
+    {DecBits, Bytes1} = varint_decode(Bytes),
+    {<<DecBits/bitstring, X:7>>, Bytes1}.

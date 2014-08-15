@@ -26,15 +26,14 @@ format_error(ebadtype) ->
 
 %% Internal functions
 
-data_type(<<"null">>) -> null;
-data_type(<<"boolean">>) -> boolean;
-data_type(<<"int">>) -> int;
-data_type(<<"long">>) -> long;
-data_type(<<"float">>) -> float;
+data_type(<<"null">>)   -> null;
+data_type(<<"boolean">>)-> boolean;
+data_type(<<"int">>)    -> int;
+data_type(<<"long">>)   -> long;
 data_type(<<"double">>) -> double;
 data_type(<<"string">>) -> string;
 data_type(<<"binary">>) -> string;
-data_type(_Other) ->
+data_type(_Other)       ->
     {error, ebadtype}.
 
 parse_schema(Schema) ->

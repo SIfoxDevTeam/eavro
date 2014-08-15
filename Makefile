@@ -13,3 +13,6 @@ clean:
 
 test:
 	@$(REBAR) xref eunit skip_deps=true
+
+run: compile
+	./start
