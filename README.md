@@ -53,7 +53,6 @@ Eshell V5.10.2  (abort with ^G)
 ToDo
 ----
 
- * Add decode functions
  * Add specs, tests and documentation
  * Add data writer/reader functions
  * Implement complex types: enums, arrays, maps, unions and fixed.
