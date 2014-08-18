@@ -36,7 +36,15 @@ encode(#avro_record{fields = Fields}, Data) ->
     [encode(Type, Value) || {{_Name, Type}, Value} <- lists:zip(Fields, Data)];
 encode(#avro_enum{symbols = Symbols}, Data) ->
     ZeroBasedIndex = index_of(Data, Symbols) - 1,
-    encode(int,ZeroBasedIndex).
+    encode(int,ZeroBasedIndex);
+encode(#avro_fixed{ size = Size }, Data) ->
+    byte_size(Data) == Size orelse exit(bad_size),
+    Data;
+encode(#avro_map{ values = ValuesType }, Data) when is_list(Data) ->
+    [encode(long, length(Data)), 
+     [ [encode(string, K),
+	encode(ValuesType, V)] || {K,V} <- Data],
+     encode(long, 0) ].
 
 index_of(Item, List) -> index_of(Item, List, 1).
 
@@ -70,6 +78,38 @@ decode(#avro_enum{symbols=Symbols} = Type, Buff, Hook) ->
     {ZeroBasedIndex, Buff1} = decode(int, Buff, Hook),
     Symbol = lists:nth(ZeroBasedIndex + 1, Symbols),
     { decode_hook(Hook, Type, Symbol ), Buff1};
+decode(#avro_map{values=ValuesType}, Buff, Hook) ->
+    DecodeBlock = 
+	fun(Buff0) ->
+		{Count_, Buff1} = decode(long, Buff0),
+		{Count, Buff2} = 
+		    if Count_ < 0  -> 
+			    {_BlockSize, Buff_} = decode(long, Buff1),
+			    {-Count_, Buff_};
+		       true -> 
+			    {Count_, Buff1}
+		    end,
+		{Map, Buff3} = 
+		    lists:foldl(
+		      fun(_, {KVAcc,BuffAcc}) ->
+			      {K, BuffAcc1} = decode(string,BuffAcc),
+			      {V, BuffAcc2} = decode(ValuesType,BuffAcc1,Hook),
+			      { [{K,V}|KVAcc], BuffAcc2}
+		      end, {[], Buff2}, lists:seq(1,Count)),
+		{Map, Buff3}
+	end,
+    DecodeBlocks = 
+	fun(MapKVBlocks, Buff0, Continue) ->
+		case DecodeBlock(Buff0) of
+		    {[], Buff1} -> {decode_hook(Hook, ValuesType, MapKVBlocks), Buff1};
+		    {MapKVBlock, Buff1} ->
+			Continue([MapKVBlock|MapKVBlocks],Buff1, Continue)
+		end
+	end,
+    DecodeBlocks([], Buff, DecodeBlocks);
+decode(#avro_fixed{size=Size}=Type, Buff, Hook) ->
+    <<Val:Size/binary,Buff1/binary>> = Buff,
+    {decode_hook(Hook, Type, Val), Buff1};
 decode(Type, Buff, Hook) when Type == string orelse Type == bytes ->
     {ByteSize, Buff1} = decode(long, Buff, undefined),
     <<String:ByteSize/binary, Buff2/binary>> = Buff1,
