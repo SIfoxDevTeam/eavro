@@ -116,6 +116,20 @@ avro_record_codec_test_() ->
 	end}
      ]}.
 
+avro_map_codec_test() ->
+    Type = #avro_map{values = long},
+    Map = lists:sort([ {<<"k1">>, 1}, {<<"k2">>, 2}, {<<"k3">>, 3} ]),
+    Encoded = eavro_codec:encode(Type, Map),
+    { DecodedMapBlocks, <<>>} = eavro_codec:decode(Type, Encoded), 
+    DecodedMap = lists:flatten(DecodedMapBlocks),
+    ?assertMatch( Map, lists:sort(DecodedMap)).
+
+avro_fixed_codec_test() ->
+    Type = #avro_fixed{size = 5},
+    Fixed = <<0,1,2,3,4>>,
+    Encoded = eavro_codec:encode(Type, Fixed),
+    ?assertMatch({ Fixed, <<>>}, eavro_codec:decode(Type, Encoded) ).
+
 %%====================================================================================================
 %% HELPER FUNCTIONS
 %%====================================================================================================
