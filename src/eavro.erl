@@ -3,7 +3,6 @@
 %% API
 -export([schema/1]).
 -export([encode/2]).
--export([format_error/1]).
 
 -include("eavro.hrl").
 
@@ -18,43 +17,73 @@ schema(File) ->
 encode(Schema, Data) ->
     iolist_to_binary(eavro_codec:encode(Schema, Data)).
 
--spec format_error(atom()) -> string().
-format_error(enotype) ->
-    "No type of schema is specified";
-format_error(ebadtype) ->
-    "Unsupported type of schema is specified".
-
-%% Internal functions
-
-data_type(<<"null">>)   -> null;
-data_type(<<"boolean">>)-> boolean;
-data_type(<<"int">>)    -> int;
-data_type(<<"long">>)   -> long;
-data_type(<<"double">>) -> double;
-data_type(<<"string">>) -> string;
-data_type(<<"binary">>) -> string;
-data_type(_Other)       ->
-    {error, ebadtype}.
+%%
+%% Private functions section
+%%
 
 parse_schema(Schema) ->
-    case lists:keyfind(<<"type">>, 1, Schema) of
-        {<<"type">>, <<"record">>} ->
-            parse_record(Schema);
-        {<<"type">>, Type} ->
-            data_type(Type);
-        false ->
-            {error, enotype}
-    end.
+    parse_type(Schema).
 
-parse_record(Schema) ->
-    Name = proplists:get_value(<<"name">>, Schema),
-    Fields = proplists:get_value(<<"fields">>, Schema),
-    #avro_record{
-        name = Name,
-        fields = [parse_record_field(Field) || Field <- Fields]
-    }.
+parse_type(Simple) when is_binary(Simple) ->
+    case Simple of
+	<<"null">>    -> null;
+	<<"boolean">> -> boolean;
+	<<"int">>     -> int;
+	<<"long">>    -> long;
+	<<"double">>  -> double;
+	<<"string">>  -> string;
+	<<"bytes">>   -> bytes;
+	BadType       -> exit({bad_simple_type, BadType})
+    end;
+parse_type([{_,_}|_] = Complex) ->
+    Parser = 
+	case proplists:get_value(<<"type">>,Complex) of
+	    <<"record">> ->
+		fun parse_record/1;
+	    <<"enum">> ->
+		fun parse_enum/1;
+	    <<"union">> ->
+		fun parse_union/1;
+	    <<"map">> ->
+		fun parse_map/1;
+	    <<"array">> ->
+		fun parse_array/1;
+	    <<"fixed">> ->
+		fun parse_fixed/1;
+	    BadType -> exit({bad_complex_type, BadType})
+	end,
+    Parser(Complex);
+parse_type(_) -> exit(badarg).
 
-parse_record_field(Field) ->
-    Name = proplists:get_value(<<"name">>, Field),
-    Type = proplists:get_value(<<"type">>, Field),
-    {Name, data_type(Type)}.
+
+get_attributes(Complex, Attrs) ->
+    [proplists:get_value(Attr, Complex) || Attr <- Attrs].
+
+binary_to_latin1_atom(Bin) ->
+    binary_to_atom(Bin,latin1).
+
+parse_record(Record) ->
+    [Name, Fields] = get_attributes(Record, [<<"name">>, <<"fields">>]),
+    #avro_record{ name   = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+		  fields = lists:keymap(fun parse_type/1, 2, Fields) }.
+
+parse_enum(Enum) ->
+    [Name, Symbols] = get_attributes(Enum, [<<"name">>, <<"symbols">>]),
+    #avro_enum{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+		symbols = Symbols }.
+
+parse_union(_Union) ->
+    exit(not_implemented).
+
+parse_map(Map) ->
+    [ValuesType] = get_attributes(Map, [<<"values">>]),
+    #avro_map{ values = parse_type(ValuesType) }.
+
+
+parse_fixed(Fixed) ->
+    [Name, Size] = get_attributes(Fixed, [<<"name">>, <<"size">>]),
+    #avro_fixed{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+		 size = Size }.
+
+parse_array(_Array) ->
+    exit(not_implemented).
