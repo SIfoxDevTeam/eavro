@@ -1,14 +1,17 @@
 -module(eavro).
 
 %% API
--export([read_ocf/1, read_schema/1, parse_schema/1]).
+-export([read_ocf/1, read_ocf/2, read_schema/1, parse_schema/1]).
 -export([encode/2]).
 
 -include("eavro.hrl").
 
-read_ocf(File) ->
+read_ocf(File) -> 
+    read_ocf(File, undefined).
+
+read_ocf(File, Hook) ->
     {ok, Bin} = file:read_file(File),
-    eavro_ocf_codec:decode(Bin).
+    eavro_ocf_codec:decode(Bin,Hook).
 
 read_schema(File) ->
     case file:read_file(File) of

@@ -5,22 +5,30 @@
 -include_lib("eunit/include/eunit.hrl").
 
 parse_twitter_ocf_test() ->
-    OcfSchema = eavro:read_schema("../priv/avro_ocf.avsc"),
-    {ok, Bin} = file:read_file("../test/data/twitter.avro"),
-    {_Header = [_,Meta,_], Bin1} = eavro_codec:decode(OcfSchema,Bin),
-    SchemaJson = proplists:get_value(<<"avro.schema">>, lists:flatten(Meta)),
-    Schema = eavro:parse_schema(SchemaJson),
-    io:format("^^^^^^^^^^ ~n~p~n", [Schema]),
-    exit(test_end).
-    %% Codec  = proplists:get_value(<<"avro.codec">>, Meta),
-    %% io:format("^^^^^^^^^^ ~n~p~n", [Schema]),
-    %% io:format("=============== ~n", []),
-    %% ?assertMatch( [], decode_all(Schema, Bin1)).
+    Data = eavro:read_ocf("../test/data/twitter.avro"),
+    ?assertMatch( 
+       _Blocks = 
+	   [_Block = 
+		[ _Rec1 = [<<"miguno">>,<<"Rock: Nerf paper, scissors is fine.">>,
+			   1366150681],
+		  _Rec2 = [<<"BlizzardCS">>,<<"Works as intended.  Terran is IMBA.">>,
+			   1366154481]
+		]
+	   ], Data).
 
-decode_all(Schema, Buff) ->
-    case eavro_codec:decode(Schema, Buff) of
-	{Obj, <<>>} ->
-	    [Obj];
-	{Obj, Buff1} ->
-	    [Obj | decode_all(Schema, Buff1)]
-    end.
+parse_twitter_ocf_with_hook_test() ->
+    Data = lists:flatten(
+	     eavro:read_ocf("../test/data/twitter.avro", fun simple_hook/2)),
+    ?assertMatch(
+       [{<<"miguno">>,<<"Rock: Nerf paper, scissors is fine.">>,
+	 1366150681},
+	{<<"BlizzardCS">>,<<"Works as intended.  Terran is IMBA.">>,
+	 1366154481} ], 
+       Data).
+
+simple_hook(#avro_record{name='twitter_schema'}, 
+	    [Name, Tweet, Timestamp]) ->
+    {Name, Tweet, Timestamp};
+simple_hook(_, V) -> V.
+
+    
