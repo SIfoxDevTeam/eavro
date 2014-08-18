@@ -104,7 +104,6 @@ avro_record_codec_test_() ->
 				    GalaxyCoord, 
 				    <<"Optimus">>, <<"Prime">>, 1000, true, false, 
 				    'Autobots']),
-		io:format("ENCODED: ~p~n", [Encoded]),
 		Decoded = eavro_codec:decode(Type, Encoded, Hook), 
 		?assertMatch( {#'Person'{ fname = "Optimus", 
 					  lname = "Prime", 
