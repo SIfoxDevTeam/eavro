@@ -1,12 +1,16 @@
 -module(eavro).
 
 %% API
--export([schema/1]).
+-export([read_ocf/1, read_schema/1, parse_schema/1]).
 -export([encode/2]).
 
 -include("eavro.hrl").
 
-schema(File) ->
+read_ocf(File) ->
+    {ok, Bin} = file:read_file(File),
+    eavro_ocf_codec:decode(Bin).
+
+read_schema(File) ->
     case file:read_file(File) of
         {ok, Data} ->
             Schema = jsx:decode(Data),
@@ -14,15 +18,18 @@ schema(File) ->
         Error -> Error
     end.
 
+parse_schema(SchemaJson) when is_binary(SchemaJson) ->
+    parse_schema(jsx:decode(SchemaJson));
+parse_schema(SchemaJsx) ->
+    parse_type(SchemaJsx).
+
+
 encode(Schema, Data) ->
     iolist_to_binary(eavro_codec:encode(Schema, Data)).
 
 %%
 %% Private functions section
 %%
-
-parse_schema(Schema) ->
-    parse_type(Schema).
 
 parse_type(Simple) when is_binary(Simple) ->
     case Simple of
@@ -53,7 +60,7 @@ parse_type([{_,_}|_] = Complex) ->
 	    BadType -> exit({bad_complex_type, BadType})
 	end,
     Parser(Complex);
-parse_type(_) -> exit(badarg).
+parse_type(_Bad) -> exit({badarg, _Bad}).
 
 
 get_attributes(Complex, Attrs) ->
@@ -65,12 +72,16 @@ binary_to_latin1_atom(Bin) ->
 parse_record(Record) ->
     [Name, Fields] = get_attributes(Record, [<<"name">>, <<"fields">>]),
     #avro_record{ name   = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
-		  fields = lists:keymap(fun parse_type/1, 2, Fields) }.
+		  fields = lists:map(fun parse_field/1, Fields)}.
+
+parse_field(RecField) -> 
+    [Name, Type] = get_attributes(RecField, [<<"name">>, <<"type">>] ),
+    {Name, parse_type(Type)}.
 
 parse_enum(Enum) ->
     [Name, Symbols] = get_attributes(Enum, [<<"name">>, <<"symbols">>]),
     #avro_enum{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
-		symbols = Symbols }.
+		symbols = lists:map(fun binary_to_latin1_atom/1, Symbols) }.
 
 parse_union(_Union) ->
     exit(not_implemented).
@@ -78,7 +89,6 @@ parse_union(_Union) ->
 parse_map(Map) ->
     [ValuesType] = get_attributes(Map, [<<"values">>]),
     #avro_map{ values = parse_type(ValuesType) }.
-
 
 parse_fixed(Fixed) ->
     [Name, Size] = get_attributes(Fixed, [<<"name">>, <<"size">>]),
