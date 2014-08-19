@@ -1,0 +1,3 @@
+#!/bin/bash
+
+ERL_LIBS=deps:../ erl

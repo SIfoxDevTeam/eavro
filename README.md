@@ -41,7 +41,7 @@ Usage
 Erlang R16B01 (erts-5.10.2) [source] [64-bit] [smp:2:2] [async-threads:10] [kernel-poll:false]
 
 Eshell V5.10.2  (abort with ^G)
-1> Schema = eavro:schema("schema.avcs").
+1> Schema = eavro:read_schema("schema.avcs").
 {avro_record,<<"User">>,
              [{<<"username">>,string},
               {<<"age">>,int},
@@ -53,7 +53,6 @@ Eshell V5.10.2  (abort with ^G)
 ToDo
 ----
 
- * Add decode functions
  * Add specs, tests and documentation
  * Add data writer/reader functions
  * Implement complex types: enums, arrays, maps, unions and fixed.
