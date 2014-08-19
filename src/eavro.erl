@@ -6,6 +6,9 @@
 
 -include("eavro.hrl").
 
+-spec read_ocf(Filename :: file:filename()) -> 
+		      {Schema :: avro_type(), 
+		       Blocks :: [ [ any() ] ]}.
 read_ocf(File) -> 
     read_ocf(File, undefined).
 
