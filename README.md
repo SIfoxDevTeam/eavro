@@ -55,6 +55,26 @@ Eshell V5.10.2  (abort with ^G)
 2> eavro:encode(Schema, [<<"John">>, 23, true]).
 <<8,74,111,104,110,46,1>>
 ```
+Encode value of union type require explicit type specification when encoding:
+
+```erlang
+1> rr(eavro).
+[avro_array,avro_enum,avro_fixed,avro_map,avro_record]
+2> eavro:encode([int, string], {int, 1}).
+<<0,2>>
+3> eavro:encode([int, string], {string, <<"blah">>}).
+<<2,8,98,108,97,104>>
+4> eavro:encode(#avro_array{ items = [int, string] }, [{int, 1}, {string, <<"blah">>}]).
+<<4,0,2,2,8,98,108,97,104,0>>
+5> eavro:decode(#avro_array{ items = [int, string] }, <<4,0,2,2,8,98,108,97,104,0>>).
+{[[1,<<"blah">>]],<<>>}
+6> RecType = #avro_record{ name = some_struct, fields = [{field1, int}] }.
+#avro_record{name = some_struct,fields = [{field1,int}]}
+7> eavro:encode(#avro_array{ items = [int, string, RecType] }, [{int, 1}, {string, <<"blah">>}, {RecType, [37337] }]).
+<<6,0,2,2,8,98,108,97,104,4,178,199,4,0>>
+8> eavro:decode(#avro_array{ items = [int, string, RecType] }, <<6,0,2,2,8,98,108,97,104,4,178,199,4,0>>).            
+{[[1,<<"blah">>,[37337]]],<<>>}
+```
 
 Read data from Avro binary file in an OCF format:
 ```erlang
