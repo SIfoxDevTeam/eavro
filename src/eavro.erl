@@ -1,21 +1,44 @@
 -module(eavro).
 
-%% API
--export([read_ocf/1, read_ocf/2, read_schema/1, parse_schema/1]).
--export([encode/2]).
+%% API exports
+-export([read_ocf/1, 
+	 read_ocf/2, 
+	 read_schema/1, 
+	 parse_schema/1, 
+	 encode/2, 
+	 decode/2, 
+	 decode/3]).
 
 -include("eavro.hrl").
 
+%%=======================
+%% API functions
+%%======================
+
+%%
+%%
+%%
 -spec read_ocf(Filename :: file:filename()) -> 
 		      {Schema :: avro_type(), 
 		       Blocks :: [ [ any() ] ]}.
 read_ocf(File) -> 
     read_ocf(File, undefined).
 
+%%
+%%
+%%
+-spec read_ocf(File :: file:filename(),
+	       Hook :: undefined | decode_hook()) -> 
+		      {Schema :: avro_type(), 
+		       Blocks :: [ [ any() ] ]}.
 read_ocf(File, Hook) ->
     {ok, Bin} = file:read_file(File),
     eavro_ocf_codec:decode(Bin,Hook).
 
+%%
+%%
+%%
+-spec read_schema(File :: file:filename() ) -> avro_type().
 read_schema(File) ->
     case file:read_file(File) of
         {ok, Data} ->
@@ -24,12 +47,33 @@ read_schema(File) ->
         Error -> Error
     end.
 
+%%
+%%
+%%
+-spec parse_schema( binary() ) -> avro_type().
 parse_schema(SchemaJson) when is_binary(SchemaJson) ->
     parse_schema(jsx:decode(SchemaJson));
 parse_schema(SchemaJsx) ->
     parse_type(SchemaJsx).
 
+%%
+%%
+%%
+decode(Schema, Buff) -> 
+    decode(Schema, Buff, undefined).
 
+%%
+%%
+%%
+-spec decode( Schema :: avro_type(), 
+              Buff :: binary() | iolist(), 
+              Hook :: undefined | decode_hook() ) -> 
+    { Value :: term(), Buff :: binary()}.
+decode(Schema, Buff, Hook) ->
+    eavro_codec:decode(Schema, Buff, Hook).
+%%
+%%
+%%
 encode(Schema, Data) ->
     iolist_to_binary(eavro_codec:encode(Schema, Data)).
 
