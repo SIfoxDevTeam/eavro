@@ -29,7 +29,8 @@
 	},
 	{"name" : "friends", 
 	 "type" : { "type"  : "array", 
-		    "items" : { "name" : "Ref", "type" : "fixed", "size" : 4} }}
+		    "items" : { "name" : "Ref", "type" : "fixed", "size" : 4} }},
+	{"name" : "energy_level", "type" : ["int", "string"]}
     ],
     "doc" : "A basic schema for storing Transformers"
 }

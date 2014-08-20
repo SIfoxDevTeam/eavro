@@ -135,6 +135,33 @@ avro_array_codec_test() ->
     Encoded = eavro_codec:encode(Type, Array),
     ?assertMatch({ [Array], <<>>}, eavro_codec:decode(Type, Encoded) ).
 
+avro_union_codec_test() ->
+    Union = [int,string],
+    ?assertMatch({ 137, <<>>}, 
+		 eavro_codec:decode(
+		   Union, 
+		   eavro_codec:encode(Union, {int, 137}) ) ),
+    ?assertMatch({ <<"NaN">>, <<>>}, 
+		 eavro_codec:decode(
+		   Union, 
+		   eavro_codec:encode(Union, {string, <<"NaN">>}) ) ).
+
+avro_array_of_union_codec_test() ->
+    RecType = #avro_record{ name = some_struct, 
+			    fields = [{field1, long}]},
+    Type = #avro_array{ 
+	      items = 
+		  [int, string, RecType] },
+    ?assertMatch({ [ _Block = [ 1, 2, <<"very much">>, [137] ] ], <<>>}, 
+		 eavro_codec:decode(
+		   Type, 
+		   eavro_codec:encode(
+		     Type, 
+		     [ {int, 1}, 
+		       {int, 2}, 
+		       {string, <<"very much">>}, 
+		       {RecType, [137]} ]) ) ).
+
 %%====================================================================================================
 %% HELPER FUNCTIONS
 %%====================================================================================================

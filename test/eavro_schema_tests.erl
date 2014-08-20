@@ -23,3 +23,13 @@ parse_avro_ocf_header_test() ->
 	#avro_fixed{name='Sync',size=16}], 
        [ proplists:get_value(K, Fields) || 
 	   K <- [ <<"magic">>, <<"meta">>, <<"sync">>] ]).
+
+parse_transformer_schema_test() ->
+    Schema = eavro:read_schema("../test/data/transformer.avsc"),
+    ?assertMatch(
+       #avro_record{ 
+	  name = 'transformer_schema',
+	  fields = [{<<"id">>, #avro_fixed{} },
+		    {<<"fname">>, string },
+		    {<<"lname">>, string } | _]}, 
+       Schema).

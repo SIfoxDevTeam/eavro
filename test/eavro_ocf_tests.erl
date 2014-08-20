@@ -31,7 +31,7 @@ parse_transformers_ocf_test() ->
        {Schema = #avro_record{},
 	_Blocks = 
 	   [_Block = 
-		[ _Rec1 = [<<"Optimus">>,<<"Prime">> |_] | _ ]
+		[ _Rec1 = [<<"0000">>, <<"Optimus">>,<<"Prime">> |_] | _ ]
 	   ]}, Data).
 
 

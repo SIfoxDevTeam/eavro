@@ -55,8 +55,6 @@ parse_type([{_,_}|_] = Complex) ->
 		fun parse_record/1;
 	    <<"enum">> ->
 		fun parse_enum/1;
-	    <<"union">> ->
-		fun parse_union/1;
 	    <<"map">> ->
 		fun parse_map/1;
 	    <<"array">> ->
@@ -66,6 +64,8 @@ parse_type([{_,_}|_] = Complex) ->
 	    BadType -> exit({bad_complex_type, BadType})
 	end,
     Parser(Complex);
+parse_type([B|_] = Union) when is_binary(B) -> 
+    parse_union(Union);
 parse_type(_Bad) -> exit({badarg, _Bad}).
 
 
@@ -89,8 +89,25 @@ parse_enum(Enum) ->
     #avro_enum{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
 		symbols = lists:map(fun binary_to_latin1_atom/1, Symbols) }.
 
-parse_union(_Union) ->
-    exit(not_implemented).
+parse_union(Union) ->
+    Types = lists:map(fun parse_type/1, Union),
+    check_uniqueness(Types),
+    Types.
+
+check_uniqueness(Types) ->
+    L0 = [case T of
+	 #avro_record{ name = N } -> N;
+	 #avro_enum{   name = N } -> N;
+	 #avro_fixed{  name = N } -> N;
+	 _ -> T
+     end || T <- Types],
+    L = lists:zip(L0, lists:seq(0, length(L0) - 1)),
+    [ if N1 == N2 -> exit({bad_union, Types, {name_clash, {Idx1, T1}, {Idx2,T2} } });
+	 true -> ok 
+      end|| {{T1, N1}, Idx1} <- L, {{T2,N2}, Idx2} <- L, Idx1 < Idx2],
+    ok.
+	 
+	 
 
 parse_map(Map) ->
     [ValuesType] = get_attributes(Map, [<<"values">>]),

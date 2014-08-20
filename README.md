@@ -20,6 +20,7 @@ Supported complex types
  * enum
  * map
  * fixed
+ * union
 
 Schema example
 --------------
@@ -114,7 +115,6 @@ ToDo
  * Add data writer/reader functions
    * Write OCF files
    * Support codecs (deflat, snappy) when reading and writing data from OCF
- * Implement complex types: arrays, unions.
 
 License
 -------
