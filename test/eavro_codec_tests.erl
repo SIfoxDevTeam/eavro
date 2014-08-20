@@ -129,6 +129,12 @@ avro_fixed_codec_test() ->
     Encoded = eavro_codec:encode(Type, Fixed),
     ?assertMatch({ Fixed, <<>>}, eavro_codec:decode(Type, Encoded) ).
 
+avro_array_codec_test() ->
+    Type = #avro_array{items = string},
+    Array = [<<"Alpha">>, <<"Beta">>, <<"Gamma">>, <<"Delta">>, <<"Epsilon">>, <<"Dzeta">>],
+    Encoded = eavro_codec:encode(Type, Array),
+    ?assertMatch({ [Array], <<>>}, eavro_codec:decode(Type, Encoded) ).
+
 %%====================================================================================================
 %% HELPER FUNCTIONS
 %%====================================================================================================

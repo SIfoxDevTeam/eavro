@@ -9,6 +9,8 @@
 
 -record(avro_map,   { values :: avro_type() }).
 
+-record(avro_array, { items :: avro_type() }).
+
 -type avro_type() :: #avro_record{} |
 		     #avro_enum{}   |
                       int           | 

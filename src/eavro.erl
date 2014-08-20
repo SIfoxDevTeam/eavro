@@ -101,5 +101,6 @@ parse_fixed(Fixed) ->
     #avro_fixed{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
 		 size = Size }.
 
-parse_array(_Array) ->
-    exit(not_implemented).
+parse_array(Array) ->
+    [Type] = get_attributes(Array, [<<"items">>]),
+    #avro_array{ items = parse_type(Type) }.
