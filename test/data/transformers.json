@@ -1,0 +1,12 @@
+{"id": "0000", "fname" : "Optimus", "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Earth", "equipment" : {"weapon" : { "name": "SuperBlaster", "weight" : 33 } }, "friends" : [ "0001", "0002"] }
+{"id": "0001", "fname" : "Nexus",   "lname" : "Prime", "age"  : 1001, "is_autobot" :true, "location": "Moon" , "equipment" : {"weapon" : { "name": "PlasmaCanon", "weight" : 100 } }, "friends" : []}
+{"id": "0002", "fname" : "Zeta",    "lname" : "Prime", "age"  : 2000, "is_autobot" :true, "location": "March", "equipment" : {"weapon" : { "name": "LazerCanon", "weight" : 60 } } , "friends" : []}
+{"id": "0003", "fname" : "Rodmus",  "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Venus", "equipment" : {"weapon" : { "name": "RocketLauncher", "weight" : 200 } } , "friends" : []}
+{"id": "0004", "fname" : "Optimus1", "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Jupiter", "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "0005", "fname" : "Nexus1",   "lname" : "Prime", "age"  : 1001, "is_autobot" :true, "location": "Mercury", "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "0006", "fname" : "Zeta1",    "lname" : "Prime", "age"  : 2000, "is_autobot" :true, "location": "Titan",   "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "0007", "fname" : "Rodmus1",  "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Io",      "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "0008", "fname" : "Optimus2", "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Europe",  "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "0009", "fname" : "Nexus2",   "lname" : "Prime", "age"  : 1001, "is_autobot" :true, "location": "Ganimed", "equipment" : {"weapon" : { "name": "Blaster", "weight" : 33 } } , "friends" : []}
+{"id": "000A", "fname" : "Zeta3",    "lname" : "Prime", "age"  : 2000, "is_autobot" :true, "location": "Callisto", "equipment" : {"weapon" : { "name": "NuclearGun", "weight" : 70 } } , "friends" : []}
+{"id": "000B", "fname" : "Rodmus3",  "lname" : "Prime", "age"  : 1000, "is_autobot" :true, "location": "Pluton",   "equipment" : {"weapon" : { "name": "ElectroHammer", "weight" : 180 } } , "friends" : []}
