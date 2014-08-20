@@ -49,7 +49,7 @@ encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
     [encode(long, length(Data)), 
      [ encode(Type, V) || V <- Data],
      encode(long, 0) ];
-encode(Union, {Type, Data}) when is_atom(hd(Union)) ->
+encode(Union, {Type, Data}) when is_list(Union) ->
     try 
 	I = index_of(Type, Union) - 1,
 	[encode(long, I), encode(Type, Data)]
