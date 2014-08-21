@@ -44,7 +44,19 @@ encode(#avro_map{ values = ValuesType }, Data) when is_list(Data) ->
     [encode(long, length(Data)), 
      [ [encode(string, K),
 	encode(ValuesType, V)] || {K,V} <- Data],
-     encode(long, 0) ].
+     encode(long, 0) ];
+encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
+    [encode(long, length(Data)), 
+     [ encode(Type, V) || V <- Data],
+     encode(long, 0) ];
+encode(Union, {Type, Data}) when is_list(Union) ->
+    try 
+	I = index_of(Type, Union) - 1,
+	[encode(long, I), encode(Type, Data)]
+    catch
+	_:not_found -> exit({union_mismatch, Union, Type})
+    end.
+
 
 index_of(Item, List) -> index_of(Item, List, 1).
 
@@ -78,35 +90,10 @@ decode(#avro_enum{symbols=Symbols} = Type, Buff, Hook) ->
     {ZeroBasedIndex, Buff1} = decode(int, Buff, Hook),
     Symbol = lists:nth(ZeroBasedIndex + 1, Symbols),
     { decode_hook(Hook, Type, Symbol ), Buff1};
-decode(#avro_map{values=ValuesType}, Buff, Hook) ->
-    DecodeBlock = 
-	fun(Buff0) ->
-		{Count_, Buff1} = decode(long, Buff0),
-		{Count, Buff2} = 
-		    if Count_ < 0  -> 
-			    {_BlockSize, Buff_} = decode(long, Buff1),
-			    {-Count_, Buff_};
-		       true -> 
-			    {Count_, Buff1}
-		    end,
-		{Map, Buff3} = 
-		    lists:foldl(
-		      fun(_, {KVAcc,BuffAcc}) ->
-			      {K, BuffAcc1} = decode(string,BuffAcc),
-			      {V, BuffAcc2} = decode(ValuesType,BuffAcc1,Hook),
-			      { [{K,V}|KVAcc], BuffAcc2}
-		      end, {[], Buff2}, lists:seq(1,Count)),
-		{Map, Buff3}
-	end,
-    DecodeBlocks = 
-	fun(MapKVBlocks, Buff0, Continue) ->
-		case DecodeBlock(Buff0) of
-		    {[], Buff1} -> {decode_hook(Hook, ValuesType, MapKVBlocks), Buff1};
-		    {MapKVBlock, Buff1} ->
-			Continue([MapKVBlock|MapKVBlocks],Buff1, Continue)
-		end
-	end,
-    DecodeBlocks([], Buff, DecodeBlocks);
+decode(#avro_map{values=Type} = CType, Buff, Hook) ->
+    decode_blocks(CType, Type, [], Buff, Hook, fun map_entry_decoder/3);
+decode(#avro_array{items=Type} = CType, Buff, Hook) ->
+    decode_blocks(CType, Type, [], Buff, Hook, fun decode/3);
 decode(#avro_fixed{size=Size}=Type, Buff, Hook) ->
     <<Val:Size/binary,Buff1/binary>> = Buff,
     {decode_hook(Hook, Type, Val), Buff1};
@@ -129,7 +116,45 @@ decode(double = Type, <<Double:64/little-float,Buff/binary>>, Hook) ->
 decode(boolean = Type, <<0:7,B:1,Buff/binary>>, Hook) ->
     {decode_hook(Hook, Type, case B of 0 -> false; 1 -> true end), Buff};
 decode(null = Type, Buff, Hook) ->
-    {decode_hook(Hook, Type, <<>>), Buff}.
+    {decode_hook(Hook, Type, <<>>), Buff};
+decode(Union, Buff, Hook) when is_atom(hd(Union)) ->
+    {Idx, Buff1} = decode(long, Buff),
+    Type = lists:nth(Idx + 1, Union),
+    decode(Type, Buff1, Hook).
+
+
+map_entry_decoder(Type, Buff, Hook) ->
+    {K, Buff1} = decode(string,Buff),
+    {V, Buff2} = decode(Type,Buff1,Hook),
+    { {K, V}, Buff2}.
+
+decode_blocks(CollectionType, ItemType, Blocks, Buff, Hook, ItemDecoder)->
+    %% Decode block item count
+    {Count_, Buff1} = decode(long, Buff),
+    %% Analyze count: there is a special behavior for count < 0
+    {Count, Buff2} = 
+	if Count_ < 0  -> 
+		%% When count <0 there is a block size, which we are do not use here
+		{_BlockSize, Buff_} = decode(long, Buff1),
+		{-Count_, Buff_};
+	   true -> 
+		{Count_, Buff1}
+	end,
+    %% Decode block items
+    {Block, Buff3} = decodeN(Count, ItemType, Buff2, Hook, ItemDecoder),
+    case Block of
+	[] -> 
+	    {decode_hook(Hook, CollectionType, Blocks), Buff3};
+	_  ->
+	    decode_blocks(CollectionType, ItemType,[Block|Blocks],Buff3,Hook,ItemDecoder)
+    end.
+
+decodeN(0, _Type, Buff, _Hook, _Decoder) ->
+    {[], Buff};
+decodeN(N, Type, Buff, Hook, Decoder) ->
+    {H, Buff1}    = Decoder(Type, Buff, Hook),
+    {Tail, Buff2} = decodeN(N - 1 , Type, Buff1, Hook, Decoder),
+    {[ H | Tail ], Buff2}.
 
 decode_hook(undefined, _Type, Val) ->
     Val;

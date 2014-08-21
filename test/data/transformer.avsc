@@ -1,0 +1,36 @@
+{
+    "type" : "record",
+    "name" : "transformer_schema",
+    "namespace" : "vvorobyov",
+    "fields" : 
+    [   { "name" : "id", "type" : { "name" : "ID", "type" : "fixed", "size" : 4} },
+	{ "name" : "fname",      "type" : "string"  }, 
+  	{ "name" : "lname",	 "type" : "string"  }, 
+  	{ "name" : "age",	 "type" : "int"     },
+  	{ "name" : "is_autobot", "type" : "boolean" },
+  	{ "name" : "location",
+  	  "type" : {"name"    : "Location", 
+		      "type"    : "enum", 
+		      "symbols" : 
+		      ["Earth","Moon","March","Venus","Jupiter",
+		       "Mercury","Titan","Io","Europe","Ganimed",
+		       "Callisto","Pluton"]
+		     }
+  	},
+	{"name" : "equipment", 
+	 "type" : 
+	 { "type": "map", 
+	   "values": { "name": "Equipment", 
+		       "type" : "record", 
+		       "fields" : [{ "name" : "name",   "type" : "string"  }, 
+				   { "name" : "weight", "type" : "int"  } ] 
+		     } 
+	 } 
+	},
+	{"name" : "friends", 
+	 "type" : { "type"  : "array", 
+		    "items" : { "name" : "Ref", "type" : "fixed", "size" : 4} }},
+	{"name" : "energy_level", "type" : ["int", "string"]}
+    ],
+    "doc" : "A basic schema for storing Transformers"
+}

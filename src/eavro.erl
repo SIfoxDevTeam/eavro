@@ -1,18 +1,44 @@
 -module(eavro).
 
-%% API
--export([read_ocf/1, read_ocf/2, read_schema/1, parse_schema/1]).
--export([encode/2]).
+%% API exports
+-export([read_ocf/1, 
+	 read_ocf/2, 
+	 read_schema/1, 
+	 parse_schema/1, 
+	 encode/2, 
+	 decode/2, 
+	 decode/3]).
 
 -include("eavro.hrl").
 
+%%=======================
+%% API functions
+%%======================
+
+%%
+%%
+%%
+-spec read_ocf(Filename :: file:filename()) -> 
+		      {Schema :: avro_type(), 
+		       Blocks :: [ [ any() ] ]}.
 read_ocf(File) -> 
     read_ocf(File, undefined).
 
+%%
+%%
+%%
+-spec read_ocf(File :: file:filename(),
+	       Hook :: undefined | decode_hook()) -> 
+		      {Schema :: avro_type(), 
+		       Blocks :: [ [ any() ] ]}.
 read_ocf(File, Hook) ->
     {ok, Bin} = file:read_file(File),
     eavro_ocf_codec:decode(Bin,Hook).
 
+%%
+%%
+%%
+-spec read_schema(File :: file:filename() ) -> avro_type().
 read_schema(File) ->
     case file:read_file(File) of
         {ok, Data} ->
@@ -21,12 +47,33 @@ read_schema(File) ->
         Error -> Error
     end.
 
+%%
+%%
+%%
+-spec parse_schema( binary() ) -> avro_type().
 parse_schema(SchemaJson) when is_binary(SchemaJson) ->
     parse_schema(jsx:decode(SchemaJson));
 parse_schema(SchemaJsx) ->
     parse_type(SchemaJsx).
 
+%%
+%%
+%%
+decode(Schema, Buff) -> 
+    decode(Schema, Buff, undefined).
 
+%%
+%%
+%%
+-spec decode( Schema :: avro_type(), 
+              Buff :: binary() | iolist(), 
+              Hook :: undefined | decode_hook() ) -> 
+    { Value :: term(), Buff :: binary()}.
+decode(Schema, Buff, Hook) ->
+    eavro_codec:decode(Schema, Buff, Hook).
+%%
+%%
+%%
 encode(Schema, Data) ->
     iolist_to_binary(eavro_codec:encode(Schema, Data)).
 
@@ -52,8 +99,6 @@ parse_type([{_,_}|_] = Complex) ->
 		fun parse_record/1;
 	    <<"enum">> ->
 		fun parse_enum/1;
-	    <<"union">> ->
-		fun parse_union/1;
 	    <<"map">> ->
 		fun parse_map/1;
 	    <<"array">> ->
@@ -63,6 +108,8 @@ parse_type([{_,_}|_] = Complex) ->
 	    BadType -> exit({bad_complex_type, BadType})
 	end,
     Parser(Complex);
+parse_type([B|_] = Union) when is_binary(B) -> 
+    parse_union(Union);
 parse_type(_Bad) -> exit({badarg, _Bad}).
 
 
@@ -86,8 +133,25 @@ parse_enum(Enum) ->
     #avro_enum{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
 		symbols = lists:map(fun binary_to_latin1_atom/1, Symbols) }.
 
-parse_union(_Union) ->
-    exit(not_implemented).
+parse_union(Union) ->
+    Types = lists:map(fun parse_type/1, Union),
+    check_uniqueness(Types),
+    Types.
+
+check_uniqueness(Types) ->
+    L0 = [case T of
+	 #avro_record{ name = N } -> N;
+	 #avro_enum{   name = N } -> N;
+	 #avro_fixed{  name = N } -> N;
+	 _ -> T
+     end || T <- Types],
+    L = lists:zip(L0, lists:seq(0, length(L0) - 1)),
+    [ if N1 == N2 -> exit({bad_union, Types, {name_clash, {Idx1, T1}, {Idx2,T2} } });
+	 true -> ok 
+      end|| {{T1, N1}, Idx1} <- L, {{T2,N2}, Idx2} <- L, Idx1 < Idx2],
+    ok.
+	 
+	 
 
 parse_map(Map) ->
     [ValuesType] = get_attributes(Map, [<<"values">>]),
@@ -98,5 +162,6 @@ parse_fixed(Fixed) ->
     #avro_fixed{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
 		 size = Size }.
 
-parse_array(_Array) ->
-    exit(not_implemented).
+parse_array(Array) ->
+    [Type] = get_attributes(Array, [<<"items">>]),
+    #avro_array{ items = parse_type(Type) }.
