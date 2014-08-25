@@ -128,13 +128,46 @@ It would be easy to remove such a deep list structure, i.e block lists, but it w
 
 The same reason affected to a 'map' type decoding result.
 
+
+Read data from Avro binary file in an OCF format using eavro_ocf_zcodec:
+
+```erlang
+1> rr(eavro).
+[avro_array,avro_enum,avro_fixed,avro_map,avro_record]
+2> eavro_ocf_zcodec:read_ocf_with(
+2>              "test/data/transformers-deflated.avro",
+2>             fun(Schema, ZInstances) ->
+2>                     ZInstances
+2>             end).
+[[<<"0000">>,<<"Optimus">>,<<"Prime">>,1000,true,'Earth',
+  [[{<<"weapon">>,[<<"SuperBlaster">>,33]}]],
+  [[<<"0001">>,<<"0002">>]],
+  234]|
+ #Fun<eavro_zcodec.3.24606246>]
+3> eavro_ocf_zcodec:read_ocf_with(
+3>              "test/data/transformers-deflated.avro",
+3>             fun(Schema, ZInstances) ->
+3>                     zlists:count(ZInstances)
+3>             end).
+12
+4> eavro_ocf_zcodec:read_ocf_with(
+4>              "test/data/transformers-deflated.avro",
+4>             fun(Schema, ZInstances) -> 
+4>                 zlists:expand(5, 
+4>		       zlists:map(fun(Inst) -> hd(Inst) end, ZInstances)) 
+4>	       end).
+[<<"0000">>,<<"0001">>,<<"0002">>,<<"0003">>,<<"0004">>|
+ #Fun<zlists.6.49696493>]
+```
+The function 'eavro_ocf_zcodec:read_ocf_with' gives a way for memory effecient way to read huge Avro OCF files. Currently only 'deflate' compression codec supported (snappy TBD).
+
 ToDo
 ----
 
  * Add specs, tests and documentation
  * Add data writer/reader functions
    * Write OCF files
-   * Support codecs (deflat, snappy) when reading and writing data from OCF
+   * Support codecs (snappy) when reading and writing data from OCF
 
 License
 -------
