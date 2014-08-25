@@ -34,6 +34,18 @@ parse_transformers_ocf_test() ->
 		[ _Rec1 = [<<"0000">>, <<"Optimus">>,<<"Prime">> |_] | _ ]
 	   ]}, Data).
 
+parse_transformers_ocf_deflated_test() ->
+    Data = eavro_ocf_zcodec:read_ocf_with(
+	     "../test/data/transformers-deflated.avro",
+	    fun(Schema, ZInstances) ->
+		    { Schema, zlists:expand(ZInstances) }
+	    end),
+    ?assertMatch( 
+       {Schema = #avro_record{},
+	_Instances = 
+	   [
+	    _Instance = [<<"0000">>, <<"Optimus">>,<<"Prime">> |_] | _ 
+	   ]}, Data).
 
 %%
 %% Private functions

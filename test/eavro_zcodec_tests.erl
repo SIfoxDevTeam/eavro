@@ -1,8 +1,10 @@
--module(eavro_codec_tests).
+-module(eavro_zcodec_tests).
 
 -include("eavro.hrl").
 
 -include_lib("eunit/include/eunit.hrl").
+
+-export([ to_zlist/1]).
 
 %%===========================================================================================
 %% TESTS
@@ -13,8 +15,8 @@ integer_codec_test_() ->
      [{caption( "Encode/Decode ~p as '~s'.", [N, Type]),
        fun() ->
 	       ?assertMatch( 
-		  {N, <<>>}, 
-		  eavro_codec:decode(Type, eavro_codec:encode(Type, N)) )
+		  {N, []}, 
+		  ztrim(eavro_zcodec:decode(Type, to_zlist(eavro_codec:encode(Type, N))) ))
        end} ||  {Type, Base, Gen} <- [ {int, 32, fun generate_int32_test_values/0}, 
 				       {long, 64, fun generate_int64_test_values/0}],
 		<<N:Base/signed-integer>> <- Gen() ]}.
@@ -25,35 +27,38 @@ varint_codec_test_() ->
            fun() ->
             FF32 = 16#FFFFFFFF,
             EncBytes = <<_:5/binary>> = eavro_codec:varint_encode(<<FF32:32>>),
-            {<<FF32:32>>, <<>>} = eavro_codec:varint_decode(int, EncBytes)
+            {<<FF32:32>>, []} = ztrim(eavro_zcodec:varint_decode(int, to_zlist(EncBytes)))
            end},
            {"Check varint codec of int64 when no leading zeroes.",
              fun() ->
                 FF64 = 16#FFFFFFFFFFFFFFFF,
                 EncBytes = <<_:10/binary>> = eavro_codec:varint_encode(<<FF64:64>>),
-                {<<FF64:64>>, <<>>} = eavro_codec:varint_decode(long, EncBytes)
+                {<<FF64:64>>, []} = ztrim(
+				      eavro_zcodec:varint_decode(
+					long, 
+					to_zlist(EncBytes)))
              end},
            {"Check varint codec of int32 when no leading zeroes with some irregularity in first byte.",
              fun() ->
                 Int32    = <<2#10101110:8,16#FFFFFF:24>>,
                 EncBytes = <<_:5/binary>> = eavro_codec:varint_encode(Int32),
-                {Int32, <<>>} = eavro_codec:varint_decode(int, EncBytes)
+                {Int32, []} = ztrim(eavro_zcodec:varint_decode(int, to_zlist(EncBytes)))
              end},
            {"Check varint codec of int64 when no leading zeroes with some irregularity in first byte.",
              fun() ->
                 Int64   = <<2#10101110:8,16#FFFFFFFFFFFFFFFF:56>>,
                 EncBytes = <<_:10/binary>> = eavro_codec:varint_encode(Int64),
-                {Int64, <<>>} = eavro_codec:varint_decode(long, EncBytes)
+                {Int64, []} = ztrim(eavro_zcodec:varint_decode(long, to_zlist(EncBytes)))
              end}] ++ 
              [ {caption("Check varint codec of int32: ~p.", [Int32]),
                fun() ->
                 EncBytes = eavro_codec:varint_encode(Int32),
-                {Int32, <<>>} = eavro_codec:varint_decode(int, EncBytes)
+                {Int32, []} = ztrim(eavro_zcodec:varint_decode(int, to_zlist(EncBytes)))
                end}|| Int32 <- generate_int32_test_values()] ++
              [{caption("Check varint codec of int64: ~p.", [Int64]),
               fun() ->
                  EncBytes = eavro_codec:varint_encode(Int64),
-                 {Int64, <<>>} = eavro_codec:varint_decode(long, EncBytes)
+                 {Int64, []} = ztrim(eavro_zcodec:varint_decode(long, to_zlist(EncBytes)))
               end} || Int64 <- generate_int64_test_values()]}.
 
 %%
@@ -104,14 +109,14 @@ avro_record_codec_test_() ->
 				    GalaxyCoord, 
 				    <<"Optimus">>, <<"Prime">>, 1000, true, false, 
 				    'Autobots']),
-		Decoded = eavro_codec:decode(Type, Encoded, Hook), 
+		Decoded = eavro_zcodec:decode(Type, to_zlist(Encoded), Hook), 
 		?assertMatch( {#'Person'{ fname = "Optimus", 
 					  lname = "Prime", 
 					  age   = 1000,
 					  home  = #'GalaxyCoord'{ x = X, y = Y, z = Z},
 					  clan  = 'Autobots',
 					  is_autobot = true,
-					  is_desepticon = false }, <<>>}, Decoded)
+					  is_desepticon = false }, []}, ztrim(Decoded))
 	end}
      ]}.
 
@@ -119,7 +124,7 @@ avro_map_codec_test() ->
     Type = #avro_map{values = long},
     Map = lists:sort([ {<<"k1">>, 1}, {<<"k2">>, 2}, {<<"k3">>, 3} ]),
     Encoded = eavro_codec:encode(Type, Map),
-    { DecodedMapBlocks, <<>>} = eavro_codec:decode(Type, Encoded), 
+    { DecodedMapBlocks, []} = ztrim(eavro_zcodec:decode(Type, to_zlist(Encoded))), 
     DecodedMap = lists:flatten(DecodedMapBlocks),
     ?assertMatch( Map, lists:sort(DecodedMap)).
 
@@ -127,24 +132,30 @@ avro_fixed_codec_test() ->
     Type = #avro_fixed{size = 5},
     Fixed = <<0,1,2,3,4>>,
     Encoded = eavro_codec:encode(Type, Fixed),
-    ?assertMatch({ Fixed, <<>>}, eavro_codec:decode(Type, Encoded) ).
+    ?assertMatch({ Fixed, []}, 
+		 ztrim(
+		  eavro_zcodec:decode(Type, to_zlist(Encoded)))).
 
 avro_array_codec_test() ->
     Type = #avro_array{items = string},
     Array = [<<"Alpha">>, <<"Beta">>, <<"Gamma">>, <<"Delta">>, <<"Epsilon">>, <<"Dzeta">>],
     Encoded = eavro_codec:encode(Type, Array),
-    ?assertMatch({ [Array], <<>>}, eavro_codec:decode(Type, Encoded) ).
+    ?assertMatch({ [Array], []}, 
+		 ztrim(
+		  eavro_zcodec:decode(Type, to_zlist(Encoded)))).
 
 avro_union_codec_test() ->
     Union = [int,string],
-    ?assertMatch({ 137, <<>>}, 
-		 eavro_codec:decode(
+    ?assertMatch({ 137, []}, 
+		 ztrim(
+		  eavro_zcodec:decode(
 		   Union, 
-		   eavro_codec:encode(Union, {int, 137}) ) ),
-    ?assertMatch({ <<"NaN">>, <<>>}, 
-		 eavro_codec:decode(
+		   to_zlist(eavro_codec:encode(Union, {int, 137}) )) )),
+    ?assertMatch({ <<"NaN">>, []}, 
+		 ztrim(
+		   eavro_zcodec:decode(
 		   Union, 
-		   eavro_codec:encode(Union, {string, <<"NaN">>}) ) ).
+		   to_zlist(eavro_codec:encode(Union, {string, <<"NaN">>}) ) ))).
 
 avro_array_of_union_codec_test() ->
     RecType = #avro_record{ name = some_struct, 
@@ -152,19 +163,21 @@ avro_array_of_union_codec_test() ->
     Type = #avro_array{ 
 	      items = 
 		  [int, string, RecType] },
-    ?assertMatch({ [ _Block = [ 1, 2, <<"very much">>, [137] ] ], <<>>}, 
-		 eavro_codec:decode(
+    ?assertMatch({ [ _Block = [ 1, 2, <<"very much">>, [137] ] ], [] }, 
+		 ztrim(
+		   eavro_zcodec:decode(
 		   Type, 
-		   eavro_codec:encode(
+		   to_zlist(
+		     eavro_codec:encode(
 		     Type, 
 		     [ {int, 1}, 
 		       {int, 2}, 
 		       {string, <<"very much">>}, 
-		       {RecType, [137]} ]) ) ).
+		       {RecType, [137]} ]) ) ) ) ).
 
-%%============================================================================================
+%%==================================================================================
 %% HELPER FUNCTIONS
-%%============================================================================================
+%%==================================================================================
 
 caption(Fmt, Args) ->
 	lists:flatten(io_lib:format(Fmt, Args)).
@@ -174,3 +187,18 @@ generate_int32_test_values() ->
 
 generate_int64_test_values() ->
     [<<0:64>>] ++ [ <<(2#11001000 bsl (N*8)):64>>|| N <- lists:seq(0,7)].
+
+%% We could simply wrap ninary with [] but want some more complicated zlist form
+to_zlist(L) when is_list(L) ->
+    to_zlist(iolist_to_binary(L));
+to_zlist(<<>>) ->
+    [];
+to_zlist(<<B:1/binary, Tail/binary>>) ->
+    [B | fun() -> to_zlist(Tail) end].
+    
+ztrim({Val, L}) when is_list(L)->
+    {Val, ztrim(L)};
+ztrim([<<>>|Tail])->
+    ztrim(zlists:expand(1,Tail));
+ztrim(L) ->
+    L.
