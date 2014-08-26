@@ -16,12 +16,6 @@
 			      Tail();
 			  is_list(Tail) -> Tail end).
 
-index_of(Item, List) -> index_of(Item, List, 1).
-
-index_of(_, [], _)              -> exit(not_found);
-index_of(Item, [Item|_], Index) -> Index;
-index_of(Item, [_|Tl], Index)   -> index_of(Item, Tl, Index+1).
-
 %%
 %% Decoding functins
 %%
@@ -132,11 +126,6 @@ decode_hook(Hook, Type, Val) when is_function(Hook,2) ->
 
 %% ZigZag encode/decode
 %% https://developers.google.com/protocol-buffers/docs/encoding?&csw=1#types
-zigzag_encode(int, Int) ->
-    (Int bsl 1) bxor (Int bsr 31);
-zigzag_encode(long, Int) ->
-    (Int bsl 1) bxor (Int bsr 63).
-
 zigzag_decode(int, ZigInt) ->
     (ZigInt bsr 1) bxor -(ZigInt band 1);
 zigzag_decode(long, ZigInt) ->
