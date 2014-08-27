@@ -41,20 +41,29 @@ encode(#avro_fixed{ size = Size }, Data) ->
     byte_size(Data) == Size orelse exit(bad_size),
     Data;
 encode(#avro_map{ values = ValuesType }, Data) when is_list(Data) ->
-    [encode(long, length(Data)), 
-     [ [encode(string, K),
-	encode(ValuesType, V)] || {K,V} <- Data],
-     encode(long, 0) ];
+    encode_blocks(
+      ValuesType, Data, 
+      fun(T, {K,V}) ->
+	[ encode(string, K),
+	  encode(T, V) ]
+      end );
 encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
-    [encode(long, length(Data)), 
-     [ encode(Type, V) || V <- Data],
-     encode(long, 0) ];
+    encode_blocks(Type, Data, fun encode/2);
 encode(Union, {Type, Data}) when is_list(Union) ->
     try 
 	I = index_of(Type, Union) - 1,
 	[encode(long, I), encode(Type, Data)]
     catch
 	_:not_found -> exit({union_mismatch, Union, Type})
+    end.
+
+encode_blocks(Type, Data, Encoder) when is_list(Data) ->
+    Count = length(Data),
+    if Count == 0 -> <<0>>;
+       true -> 
+	    [encode(long, Count), 
+	     [ Encoder(Type, V) || V <- Data],
+	     <<0>> ]
     end.
 
 
@@ -120,7 +129,8 @@ decode(null = Type, Buff, Hook) ->
 decode(Union, Buff, Hook) when is_atom(hd(Union)) ->
     {Idx, Buff1} = decode(long, Buff),
     Type = lists:nth(Idx + 1, Union),
-    decode(Type, Buff1, Hook).
+    {Val, Buff2} = decode(Type, Buff1, Hook),
+    { {Type, Val}, Buff2}.
 
 
 map_entry_decoder(Type, Buff, Hook) ->
