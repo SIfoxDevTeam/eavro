@@ -73,7 +73,8 @@ decode(null = Type, Buff, Hook) ->
 decode(Union, Buff, Hook) when is_atom(hd(Union)) ->
     {Idx, Buff1} = decode(long, Buff),
     Type = lists:nth(Idx + 1, Union),
-    decode(Type, Buff1, Hook).
+    {Val, Buff2} = decode(Type, Buff1, Hook),
+    { {Type, Val}, Buff2}.
 
 
 map_entry_decoder(Type, Buff, Hook) ->
