@@ -5,9 +5,12 @@
 	 read_ocf/2, 
 	 read_schema/1, 
 	 parse_schema/1, 
+	 encode_schema/1,
 	 encode/2, 
 	 decode/2, 
 	 decode/3]).
+
+-export([ type_to_jsx/1 ]).
 
 -include("eavro.hrl").
 
@@ -56,6 +59,10 @@ parse_schema(SchemaJson) when is_binary(SchemaJson) ->
 parse_schema(SchemaJsx) ->
     parse_type(SchemaJsx).
 
+-spec encode_schema(Schema :: avro_type()) -> binary().
+encode_schema(Schema) ->
+    jsx:encode(type_to_jsx(Schema)).
+
 %%
 %%
 %%
@@ -80,6 +87,44 @@ encode(Schema, Data) ->
 %%
 %% Private functions section
 %%
+
+type_to_jsx(#avro_record{ name = Name, fields = Fields}) ->
+    [{type, <<"record">>},
+     {name, to_bin(Name)}, 
+     {fields, [ [ {name, to_bin(FName)},
+		  {type, type_to_jsx(FType)} ] || {FName, FType} <- Fields]} ];
+type_to_jsx(#avro_enum{ name = Name, symbols = Symbols}) ->
+    [{type, <<"enum">>},
+     {name, to_bin(Name)},
+     {symbols, [ to_bin(Symbol) || Symbol <- Symbols]} ];
+type_to_jsx(#avro_fixed{ name = Name, size = Size }) ->
+    [{type, <<"fixed">>},{name, to_bin(Name)}, {size, Size}];
+type_to_jsx(#avro_map{ values = VType}) ->
+    [{type, <<"map">>},
+     {values, type_to_jsx(VType)}];
+type_to_jsx(#avro_array{ items = IType}) ->
+    [{type, <<"array">>},
+     {items, type_to_jsx(IType)}];
+type_to_jsx(Union) when is_atom(hd(Union)) -> 
+    [ type_to_jsx(T) || T <- Union];
+type_to_jsx(A) when is_atom(A) ->
+    type_to_jsx(atom_to_binary(A,latin1));
+type_to_jsx(B) when is_binary(B) ->
+    case B of
+	<<"null">>    -> ok;
+	<<"boolean">> -> ok;
+	<<"int">>     -> ok;
+	<<"long">>    -> ok;
+	<<"double">>  -> ok;
+	<<"string">>  -> ok;
+	<<"bytes">>   -> ok;
+	BadType       -> exit({bad_simple_type, BadType})
+    end,
+    B.
+    
+
+
+    
 
 parse_type(Simple) when is_binary(Simple) ->
     case Simple of
@@ -165,3 +210,11 @@ parse_fixed(Fixed) ->
 parse_array(Array) ->
     [Type] = get_attributes(Array, [<<"items">>]),
     #avro_array{ items = parse_type(Type) }.
+
+
+to_bin(B) when is_binary(B) ->
+    B;
+to_bin(A) when is_atom(A) ->
+    atom_to_binary(A,latin1);
+to_bin(L) when is_list(L) ->
+    list_to_binary(L).
