@@ -2,12 +2,19 @@
 
 %% API exports
 -export([read_ocf/1, 
-	 read_ocf/2, 
-	 read_schema/1, 
+	 read_ocf/2,
+	 read_ocf_with/2,
+	 read_ocf_with/3,
+	 read_schema/1,
+	 write_ocf/3,
+	 write_ocf/4,
 	 parse_schema/1, 
+	 encode_schema/1,
 	 encode/2, 
 	 decode/2, 
 	 decode/3]).
+
+-export([ type_to_jsx/1 ]).
 
 -include("eavro.hrl").
 
@@ -48,13 +55,73 @@ read_schema(File) ->
     end.
 
 %%
+%% Read OCF using callback function which accept two 
+%% arguments - schema and Z-List of instances. Function 
+%% returns a result of callback.
 %%
+-spec read_ocf_with(
+	File    :: file:filename(),
+	Visitor :: eavro_ocf_zcodec:ocf_visitor(Result) ) -> Result.
+read_ocf_with(File, Visitor) ->
+    read_ocf_with(File, Visitor, undefined).
+
+%%
+%% Read OCF using callback function which accept two 
+%% arguments - schema and Z-List of instances, and 
+%% decode hook callback to transform instances just 
+%% when they decoded in a default way. Function 
+%% returns a result of callback.
+%%
+-spec read_ocf_with(
+	File    :: file:filename(),
+	Visitor :: eavro_ocf_zcodec:ocf_visitor(Result), 
+	Hook    :: decode_hook() ) -> Result.
+read_ocf_with(File, Visitor, Hook) ->
+    eavro_ocf_zcodec:read_ocf_with(File, Visitor, Hook).
+
+%%
+%% Write OCF with given schema and instances.
+%%
+-spec write_ocf(
+	Filename   :: file:filename(), 
+	Schema     :: avro_type(), 
+	ZInstances :: zlists:zlist()) -> ok.
+write_ocf(Filename, Schema, ZInstances) ->
+    write_ocf(Filename, Schema, ZInstances, []).
+
+%%
+%% Write OCF with given schema, instances, and options which 
+%% controll binary format details such as compression codec 
+%% used (currently only 'deflate' and 'plain' supported), and 
+%% size of block. If size of block is specified it does not 
+%% mean that block will have strictly that size, this value 
+%% just mean a threshold of written bytes into block which is 
+%% when exceeded then a new block started.
+%%
+-spec write_ocf(
+	Filename   :: file:filename(), 
+	Schema     :: avro_type(), 
+	ZInstances :: zlists:zlist(),
+	Opts :: [{codec, deflate | plain} |
+		 {block_size, non_neg_integer()}]) -> ok.
+write_ocf(Filename, Schema, ZInstances, Opts) ->
+    eavro_ocf_zcodec:write_ocf_file(Filename, Schema, ZInstances, Opts).
+
+%%
+%% Parse JSONed schema.
 %%
 -spec parse_schema( binary() ) -> avro_type().
 parse_schema(SchemaJson) when is_binary(SchemaJson) ->
     parse_schema(jsx:decode(SchemaJson));
 parse_schema(SchemaJsx) ->
     parse_type(SchemaJsx).
+
+%%
+%% Encode schema into JSON.
+%%
+-spec encode_schema(Schema :: avro_type()) -> binary().
+encode_schema(Schema) ->
+    jsx:encode(type_to_jsx(Schema)).
 
 %%
 %%
@@ -80,6 +147,44 @@ encode(Schema, Data) ->
 %%
 %% Private functions section
 %%
+
+type_to_jsx(#avro_record{ name = Name, fields = Fields}) ->
+    [{type, <<"record">>},
+     {name, to_bin(Name)}, 
+     {fields, [ [ {name, to_bin(FName)},
+		  {type, type_to_jsx(FType)} ] || {FName, FType} <- Fields]} ];
+type_to_jsx(#avro_enum{ name = Name, symbols = Symbols}) ->
+    [{type, <<"enum">>},
+     {name, to_bin(Name)},
+     {symbols, [ to_bin(Symbol) || Symbol <- Symbols]} ];
+type_to_jsx(#avro_fixed{ name = Name, size = Size }) ->
+    [{type, <<"fixed">>},{name, to_bin(Name)}, {size, Size}];
+type_to_jsx(#avro_map{ values = VType}) ->
+    [{type, <<"map">>},
+     {values, type_to_jsx(VType)}];
+type_to_jsx(#avro_array{ items = IType}) ->
+    [{type, <<"array">>},
+     {items, type_to_jsx(IType)}];
+type_to_jsx(Union) when is_atom(hd(Union)) -> 
+    [ type_to_jsx(T) || T <- Union];
+type_to_jsx(A) when is_atom(A) ->
+    type_to_jsx(atom_to_binary(A,latin1));
+type_to_jsx(B) when is_binary(B) ->
+    case B of
+	<<"null">>    -> ok;
+	<<"boolean">> -> ok;
+	<<"int">>     -> ok;
+	<<"long">>    -> ok;
+	<<"double">>  -> ok;
+	<<"string">>  -> ok;
+	<<"bytes">>   -> ok;
+	BadType       -> exit({bad_simple_type, BadType})
+    end,
+    B.
+    
+
+
+    
 
 parse_type(Simple) when is_binary(Simple) ->
     case Simple of
@@ -165,3 +270,11 @@ parse_fixed(Fixed) ->
 parse_array(Array) ->
     [Type] = get_attributes(Array, [<<"items">>]),
     #avro_array{ items = parse_type(Type) }.
+
+
+to_bin(B) when is_binary(B) ->
+    B;
+to_bin(A) when is_atom(A) ->
+    atom_to_binary(A,latin1);
+to_bin(L) when is_list(L) ->
+    list_to_binary(L).

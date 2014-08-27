@@ -19,7 +19,7 @@ decode(Bin, Hook) ->
     Schema = eavro:parse_schema(SchemaJson),
     {Schema, decode_blocks(Schema, Bin1, Codec, Hook)}.
 
-decode_blocks(_Schema, <<>>, Codec, _Hook) -> [];
+decode_blocks(_Schema, <<>>, _Codec, _Hook) -> [];
 decode_blocks(Schema, Buff, Codec, Hook) ->
     {ObjCount, Buff1}  = eavro_codec:decode(long, Buff),
     {BlockSize, Buff2} = eavro_codec:decode(long, Buff1),

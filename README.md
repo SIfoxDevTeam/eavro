@@ -161,6 +161,23 @@ Read data from Avro binary file in an OCF format using eavro_ocf_zcodec:
 ```
 The function 'eavro_ocf_zcodec:read_ocf_with' gives a way for memory effecient way to read huge Avro OCF files. Currently only 'deflate' compression codec supported (snappy TBD).
 
+Writing OCFs:
+
+```erlang
+1> rr(eavro).
+[avro_array,avro_enum,avro_fixed,avro_map,avro_record]
+2> Schema = eavro:read_schema("test/data/twitter.avsc").
+#avro_record{name = twitter_schema,
+             fields = [{<<"username">>,string},
+                       {<<"tweet">>,string},
+                       {<<"timestamp">>,long}]}
+3> eavro:write_ocf("data.avro", Schema, [ [<<"Optimus">>, <<"Prime">>, 134234132], [<<"Nexus">>, <<"Prime">>, 3462547657] ]).
+ok
+4> eavro:read_ocf_with("data.avro", fun(_Schema, ZInstances) -> zlists:expand(ZInstances) end ).
+[[<<"Optimus">>,<<"Prime">>,134234132],
+ [<<"Nexus">>,<<"Prime">>,3462547657]]
+```
+
 ToDo
 ----
 
