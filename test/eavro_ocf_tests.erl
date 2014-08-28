@@ -7,7 +7,7 @@
 parse_twitter_ocf_test() ->
     Data = eavro:read_ocf("../test/data/twitter.avro"),
     ?assertMatch( 
-       {Schema = #avro_record{},
+       {_Schema = #avro_record{},
 	_Blocks = 
 	   [_Block = 
 		[ _Rec1 = [<<"miguno">>,<<"Rock: Nerf paper, scissors is fine.">>,
@@ -18,7 +18,7 @@ parse_twitter_ocf_test() ->
 	   ]}, Data).
 
 parse_twitter_ocf_with_hook_test() ->
-    {Schema = #avro_record{}, 
+    {_Schema = #avro_record{},
      Data } = eavro:read_ocf("../test/data/twitter.avro", fun simple_hook/2),
     ?assertMatch(
 	[{"miguno","Rock: Nerf paper, scissors is fine.",1366150681},
@@ -28,7 +28,7 @@ parse_twitter_ocf_with_hook_test() ->
 parse_transformers_ocf_test() ->
     Data = eavro:read_ocf("../test/data/transformers.avro"),
     ?assertMatch( 
-       {Schema = #avro_record{},
+       {_Schema = #avro_record{},
 	_Blocks = 
 	   [_Block = 
 		[ _Rec1 = [<<"0000">>, <<"Optimus">>,<<"Prime">> |_] | _ ]
@@ -41,7 +41,7 @@ parse_transformers_ocf_deflated_test() ->
 		    { Schema, zlists:expand(ZInstances) }
 	    end),
     ?assertMatch( 
-       {Schema = #avro_record{},
+       {_Schema = #avro_record{},
 	_Instances = 
 	   [
 	    _Instance = [<<"0000">>, <<"Optimus">>,<<"Prime">> |_] | _ 
@@ -62,7 +62,7 @@ ocf_read_write_read_test_() ->
 		  fun eavro_util:std_hook/2 ),
 		Cnt = eavro_ocf_zcodec:read_ocf_with(
 		  F2, 
-		  fun(Schema, ZInstances) ->
+		  fun(_Schema, ZInstances) ->
 			  zlists:count(ZInstances)
 		  end),
 		?assert( Cnt > 0 )
