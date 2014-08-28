@@ -37,4 +37,4 @@ parse_transformer_schema_test() ->
 schema_parse_encode_parse_test() ->
     Schema = eavro:read_schema("../test/data/transformer.avsc"),
     SchemaJson = eavro:encode_schema(Schema),
-    ?assertMatch(Scema, eavro:parse_schema(SchemaJson)).
+    ?assertMatch(Schema, eavro:parse_schema(SchemaJson)).
