@@ -1,5 +1,5 @@
 {application, eavro, [
-    {description, "Apache Avro encoder/decoder"},
+    {description, "Apache Avro encoder/decoder and RPC protocol"},
     {vsn, "0.0.1"},
-    {applications, [kernel, stdlib]}
+    {applications, [kernel, stdlib, zlists]}
 ]}.

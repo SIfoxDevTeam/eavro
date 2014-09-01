@@ -1,6 +1,7 @@
 PROJECT = eavro
 
 REBAR = $(shell which rebar 2>/dev/null || echo $(PWD)/rebar)
+LIBS = ERL_LIBS=deps
 DIALYZER = dialyzer
 APACHE_DOWNLOAD_SITE = http://apache-mirror.rbc.ru/pub/apache/avro/avro-1.7.7/java
 
@@ -19,7 +20,7 @@ test:
 	@$(REBAR) xref eunit skip_deps=true
 
 run: compile
-	./start
+	@$(LIBS) erl -pa ebin
 
 avro_tools:
 	@[ -d avro_tools ] || mkdir avro_tools
