@@ -189,4 +189,4 @@ ToDo
 License
 -------
 
-All parts of this software are distributed under GPLv3 terms.
+All parts of this software are distributed under the Apache License, Version 2.0 terms.
