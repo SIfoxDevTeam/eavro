@@ -178,6 +178,25 @@ ok
  [<<"Nexus">>,<<"Prime">>,3462547657]]
 ```
 
+Making an Avro RPC calls:
+
+```erlang
+1> {ok, P} = eavro_rpc_fsm:start_link("localhost", 41414, "flume.avpr").
+{ok,<0.35.0>}
+2> eavro_rpc_fsm:call(P, append, _Args = [ _Rec = [ [], <<"HELLO">> ] ]).
+{ok,'OK'}
+```
+
+To make an Avro RPC calls you need an Avro protocol file in a JSON format 
+(usually *.avpr file), if you have an only Avro IDL file (usually *.avdl file), 
+for now you are addressed to the avro tool to make `.avdl -> .avpr` conversion:
+
+```bash
+$ mkdir avro_tools
+$ (cd avro_tools && wget http://apache-mirror.rbc.ru/pub/apache/avro/avro-1.7.7/java/avro-tools-1.7.7.jar)
+$ java -jar avro_tools/avro-tools-1.7.7.jar idl test/data/flume.avdl | python -mjson.tool > flume.avpr
+```
+
 ToDo
 ----
 

@@ -1,3 +1,6 @@
+%%
+%% Avro Schema Types
+%%
 -record(avro_record, {
     name :: atom(),
     fields :: [{atom(), avro_type()}]
@@ -21,3 +24,19 @@
                       string        | 
                       null .
 -type decode_hook() :: fun( (avro_type(), any() )  -> any() ).
+
+%%
+%% Avro Protocol Records
+%%
+
+-record(avro_message, 
+	{ name   :: binary(), 
+	  args   :: [avro_type()], 
+	  return :: avro_type()}).
+
+-record(avro_proto, 
+	{ ns       :: binary(), 
+	  name     :: binary(), 
+	  types    :: avro_type(), 
+	  messages :: #avro_message{},
+	  json     :: binary()}).
