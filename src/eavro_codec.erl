@@ -11,6 +11,8 @@
 
 -include("eavro.hrl").
 
+-define(echo(V), io:format("~p~n",[V])).
+
 
 %% primitives
 encode(int, Int) ->
@@ -71,7 +73,7 @@ index_of(Item, List) -> index_of(Item, List, 1).
 
 index_of(_, [], _)              -> exit(not_found);
 index_of(Item, [Item|_], Index) -> Index;
-index_of(Item, [_|Tl], Index)   -> index_of(Item, Tl, Index+1).
+index_of(Item, [_|Tl], Index)   -> index_of(Item, Tl, Index + 1).
 
 %%
 %% Decoding functins

@@ -8,7 +8,9 @@
 	 read_schema/1,
 	 write_ocf/3,
 	 write_ocf/4,
-	 parse_schema/1, 
+	 parse_schema/1,
+	 parse_type/2,
+	 parse_types/2,
 	 encode_schema/1,
 	 encode/2, 
 	 decode/2, 
@@ -21,6 +23,8 @@
 %%=======================
 %% API functions
 %%======================
+
+-type type_context() :: dict:dict(atom(), avro_type()).
 
 %%
 %%
@@ -114,10 +118,11 @@ write_ocf(Filename, Schema, ZInstances, Opts) ->
 parse_schema(SchemaJson) when is_binary(SchemaJson) ->
     parse_schema(jsx:decode(SchemaJson));
 parse_schema(SchemaJsx) ->
-    parse_type(SchemaJsx).
+    {Type, _Ctx} = parse_type(SchemaJsx, dict:new()),
+    Type.
 
 %%
-%% Encode schema into JSON.
+%% Encode schema as JSON.
 %%
 -spec encode_schema(Schema :: avro_type()) -> binary().
 encode_schema(Schema) ->
@@ -181,41 +186,56 @@ type_to_jsx(B) when is_binary(B) ->
 	BadType       -> exit({bad_simple_type, BadType})
     end,
     B.
-    
 
+parse_types(Types, Context) ->    
+    {TypesRev, Context1} = 
+	lists:foldl(
+	  fun(Type, {Ts, Ctx}) ->
+		  {T, Ctx1} = parse_type(Type, Ctx),
+		  {[T|Ts], Ctx1}
+	  end, {[], Context}, Types),
+    {lists:reverse(TypesRev), Context1}.
 
-    
-
-parse_type(Simple) when is_binary(Simple) ->
-    case Simple of
-	<<"null">>    -> null;
-	<<"boolean">> -> boolean;
-	<<"int">>     -> int;
-	<<"long">>    -> long;
-	<<"double">>  -> double;
-	<<"string">>  -> string;
-	<<"bytes">>   -> bytes;
-	BadType       -> exit({bad_simple_type, BadType})
-    end;
-parse_type([{_,_}|_] = Complex) ->
+-spec parse_type(Jsx :: jsx:json_term(), 
+		 Context :: type_context()) ->
+			{avro_type(), type_context() }.
+parse_type(Simple, Context) when is_binary(Simple) ->
+    Type = 
+	case Simple of
+	    <<"null">>    -> null;
+	    <<"boolean">> -> boolean;
+	    <<"int">>     -> int;
+	    <<"long">>    -> long;
+	    <<"double">>  -> double;
+	    <<"string">>  -> string;
+	    <<"bytes">>   -> bytes;
+	    BadType       -> 
+		case dict:find(binary_to_atom(BadType, latin1), Context) of
+		    {ok, T} -> T;
+		    error   ->
+			exit({bad_simple_type_or_alias, BadType, Context})
+		end
+	end,
+    {Type, Context};
+parse_type([{_,_}|_] = Complex, Context) ->
     Parser = 
 	case proplists:get_value(<<"type">>,Complex) of
 	    <<"record">> ->
-		fun parse_record/1;
+		fun parse_record/2;
 	    <<"enum">> ->
-		fun parse_enum/1;
+		fun parse_enum/2;
 	    <<"map">> ->
-		fun parse_map/1;
+		fun parse_map/2;
 	    <<"array">> ->
-		fun parse_array/1;
+		fun parse_array/2;
 	    <<"fixed">> ->
-		fun parse_fixed/1;
+		fun parse_fixed/2;
 	    BadType -> exit({bad_complex_type, BadType})
 	end,
-    Parser(Complex);
-parse_type([B|_] = Union) when is_binary(B) -> 
-    parse_union(Union);
-parse_type(_Bad) -> exit({badarg, _Bad}).
+    Parser(Complex, Context);
+parse_type([B|_] = Union, Context) when is_binary(B) -> 
+    parse_union(Union, Context);
+parse_type(_Bad,_) -> exit({badarg, _Bad}).
 
 
 get_attributes(Complex, Attrs) ->
@@ -224,24 +244,39 @@ get_attributes(Complex, Attrs) ->
 binary_to_latin1_atom(Bin) ->
     binary_to_atom(Bin,latin1).
 
-parse_record(Record) ->
+parse_record(Record, Context) ->
     [Name, Fields] = get_attributes(Record, [<<"name">>, <<"fields">>]),
-    #avro_record{ name   = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
-		  fields = lists:map(fun parse_field/1, Fields)}.
+    {FieldsParsedRev, Context1} = 
+	lists:foldl(
+	  fun(Field, {Fs, Ctx})-> 
+		  {FieldParsed, Ctx1} = parse_field(Field, Ctx),
+		  {[FieldParsed | Fs], Ctx1}
+	  end, {[],Context}, Fields),
+    FieldsParsed = lists:reverse(FieldsParsedRev),
+    AName = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+    RecTypeParsed = 
+	#avro_record{ name   = AName,
+		      fields = FieldsParsed},
+    {RecTypeParsed, 
+     dict:store(AName, RecTypeParsed, Context1)}.
 
-parse_field(RecField) -> 
+parse_field(RecField, Context) -> 
     [Name, Type] = get_attributes(RecField, [<<"name">>, <<"type">>] ),
-    {Name, parse_type(Type)}.
+    {TypeParsed, Context1} = parse_type(Type, Context),
+    {{Name, TypeParsed}, Context1}.
 
-parse_enum(Enum) ->
+parse_enum(Enum, Context) ->
     [Name, Symbols] = get_attributes(Enum, [<<"name">>, <<"symbols">>]),
-    #avro_enum{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
-		symbols = lists:map(fun binary_to_latin1_atom/1, Symbols) }.
+    AName = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+    TypeParsed = #avro_enum{ name    = AName,
+		 symbols = lists:map(fun binary_to_latin1_atom/1, Symbols) },
+    {TypeParsed,
+     dict:store(AName,TypeParsed,Context)}.
 
-parse_union(Union) ->
-    Types = lists:map(fun parse_type/1, Union),
+parse_union(Union,Context) ->
+    {Types, Context1} = parse_types(Union, Context),
     check_uniqueness(Types),
-    Types.
+    {Types, Context1}.
 
 check_uniqueness(Types) ->
     L0 = [case T of
@@ -258,18 +293,22 @@ check_uniqueness(Types) ->
 	 
 	 
 
-parse_map(Map) ->
+parse_map(Map, Context) ->
     [ValuesType] = get_attributes(Map, [<<"values">>]),
-    #avro_map{ values = parse_type(ValuesType) }.
+    {ValuesTypeParsed, Context1} = parse_type(ValuesType, Context),
+    {#avro_map{ values = ValuesTypeParsed }, Context1}.
 
-parse_fixed(Fixed) ->
+parse_fixed(Fixed,Context) ->
     [Name, Size] = get_attributes(Fixed, [<<"name">>, <<"size">>]),
-    #avro_fixed{ name    = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
-		 size = Size }.
+    AName = binary_to_latin1_atom(Name), %% From Avro spec.: [A-Za-z0-9_]
+    Type = #avro_fixed{ name    = AName,
+			size = Size },
+    {Type, dict:store(AName, Type, Context)}.
 
-parse_array(Array) ->
+parse_array(Array, Context) ->
     [Type] = get_attributes(Array, [<<"items">>]),
-    #avro_array{ items = parse_type(Type) }.
+    {ParsedType, Context1} = parse_type(Type, Context),
+    {#avro_array{ items = ParsedType }, Context1}.
 
 
 to_bin(B) when is_binary(B) ->
