@@ -1,6 +1,8 @@
 Apache Avro encoder/decoder
 ===========================
 
+[![Build Status](https://secure.travis-ci.org/SIfoxDevTeam/eavro.png)](https://travis-ci.org/SIfoxDevTeam/eavro)
+
 Supported primitives
 --------------------
 
