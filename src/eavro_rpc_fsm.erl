@@ -120,9 +120,9 @@ handshake_finish(Event = #call{}, From, State) ->
 main(_Event = #call{ name = Name, args = Args}, 
      #state{socket  = Sock, serial = Ser, 
 	    proto = Proto} = State) when is_list(Args) ->
-    Call = eavro_rpc_proto:encode_call(Proto, Name, Args),
+    EncCall = eavro_rpc_proto:encode_call(Proto, Name, Args),
     ok = gen_tcp:send(
-	   Sock, [<<Ser:32, 1:32>>,make_frame(Call)]),
+	   Sock, make_frame_sequence(Ser, [EncCall])),
     {next_state, main, State#state{serial = Ser + 1}}.
 
 main(Event = #call{}, From, State) ->
