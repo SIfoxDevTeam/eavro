@@ -13,14 +13,18 @@
 -export([parse_protocol_file/1, 
 	 parse_protocol/1,
 	 encode_call/3,
+	 decode_call/2,
+	 encode_response/2,
+	 encode_handshake_response/1,
 	 decode_frame_sequences/1,
 	 decode_handshake_response/1,
+	 decode_handshake_request/1,
 	 decode_call_response/2]).
 
 %%
 %% Parse Avro Protocol JSON (.avpr)
 %%
-
+-define(echo(M), io:format("~p~n", [M])).
 %%
 %% Parses Avro Protocol Definition from JSON file (*.avpr).
 %%
@@ -99,6 +103,45 @@ encode_call(#avro_proto{} = Proto,
      [ eavro:encode(Type, Arg) || {Type, Arg} <- lists:zip(Types, Args) ]
     ].
 
+decode_call(#avro_proto{} = Proto, Buff) ->
+    ?echo({decode_call, Buff}),
+    {_Meta, Buff1} = eavro:decode(schema_Meta(), Buff),
+    D1 = {MessageNameBin, Buff2} = eavro:decode(string, Buff1),
+    ?echo({decode_call, D1}),
+    Msg = #avro_message{ 
+	     args = Types } = get_message(Proto,  MessageNameBin),
+    ?echo({decode_call, Msg}),
+    {ArgsR, Buff3} = 
+	lists:foldl(
+	  fun(T, {Vals, B}) ->
+		  {V, B1} = eavro:decode(T,B),
+		  {[V|Vals], B1}
+	  end, 
+	  {[], Buff2}, 
+	  Types),
+    { {Msg, lists:reverse(ArgsR)}, Buff3}.
+
+encode_response(#avro_proto{} = Proto, MessageName, Result) ->
+    M = get_message(Proto,  MessageName),
+    encode_response(M, Result).
+    
+encode_response(#avro_message{return = RetType }, {Status, Ret}) ->
+    [eavro:encode(schema_Meta(), []),
+     case Status of
+	 ok -> [<<0>>, eavro:encode(RetType, Ret)];
+	 error -> [<<1>>, eavro:encode(
+			    [string, RetType], 
+			    {RetType, Ret} )]
+     end].
+
+encode_handshake_response(#avro_proto{json = Json})->
+    eavro:encode(
+      schema_HandshakeResponse(), 
+      ['CLIENT',
+       {string, Json},
+       {schema_MD5(), erlang:md5(Json)}, 
+       {schema_Meta(), []}]).
+    
 get_message(#avro_proto{ messages = Messages}, 
 	    MessageName) ->
     case lists:keyfind(if is_atom(MessageName) -> atom_to_binary(MessageName, latin1);
@@ -172,6 +215,9 @@ decode_frame_sequence(N, Buff, Acc) ->
 
 decode_handshake_response(Buff) ->
     eavro:decode(schema_HandshakeResponse(), Buff).
+
+decode_handshake_request(Buff) ->
+    eavro:decode(schema_HandshakeRequest(), Buff).
 
 
 
