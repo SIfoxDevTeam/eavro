@@ -199,6 +199,12 @@ $ (cd avro_tools && wget http://apache-mirror.rbc.ru/pub/apache/avro/avro-1.7.7/
 $ java -jar avro_tools/avro-tools-1.7.7.jar idl test/data/flume.avdl | python -mjson.tool > flume.avpr
 ```
 
+To implement Avro RPC server on Erlang language, consider to implement a behaviour `eavro_rpc_handler`. Then just start it as follows:
+```erlang
+eavro_rpc_srv:start(your_rpc_handler,_InitArgs = [], _Port = 2525, _PoolSize = 1).
+```
+The server framework is implemented using Ranch application.
+
 ToDo
 ----
 
