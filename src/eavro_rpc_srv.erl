@@ -50,7 +50,7 @@ start(CallbackModule,
       NumAcceptors) when is_atom(CallbackModule), 
 			 is_integer(Port), 
 			 is_integer(NumAcceptors) ->
-    {ok, _} = application:ensure_all_started(ranch),
+    ok = application:start(ranch),
     Proto = CallbackModule:get_protocol(),
     ranch:start_listener(
       ?MODULE, NumAcceptors,

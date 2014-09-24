@@ -35,7 +35,7 @@ call_email_jserver_test_() ->
     {timeout, 30, 
      fun()->
 	     Port = erlang:open_port(
-		      {spawn, "mvn exec:java -Dexec.mainClass=\"email.Main\""},
+		      {spawn, "java -jar ../jtest/target/eavro-rpc-test-servers-1.7.5-SNAPSHOT-jar-with-dependencies.jar email.Main"},
 		      [{cd, "../jtest"},
 		       {env, []},
 		       binary,
