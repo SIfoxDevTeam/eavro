@@ -104,13 +104,10 @@ encode_call(#avro_proto{} = Proto,
     ].
 
 decode_call(#avro_proto{} = Proto, Buff) ->
-    ?echo({decode_call, Buff}),
     {_Meta, Buff1} = eavro:decode(schema_Meta(), Buff),
-    D1 = {MessageNameBin, Buff2} = eavro:decode(string, Buff1),
-    ?echo({decode_call, D1}),
+    {MessageNameBin, Buff2} = eavro:decode(string, Buff1),
     Msg = #avro_message{ 
 	     args = Types } = get_message(Proto,  MessageNameBin),
-    ?echo({decode_call, Msg}),
     {ArgsR, Buff3} = 
 	lists:foldl(
 	  fun(T, {Vals, B}) ->
