@@ -19,8 +19,13 @@
 -record(state, { fwd_pid }).
 
 get_protocol() ->
-    eavro_rpc_proto:parse_protocol_file(
-      "jtest/src/main/avro/mail.avpr").
+    try eavro_rpc_proto:parse_protocol_file(
+	  "jtest/src/main/avro/mail.avpr")
+    catch
+	_:_ ->
+	    eavro_rpc_proto:parse_protocol_file(
+	      "../jtest/src/main/avro/mail.avpr") % For EUnit testing
+    end.
 
 init(FwdPid) ->
     {ok, #state{fwd_pid = FwdPid} }.

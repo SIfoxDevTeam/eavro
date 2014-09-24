@@ -13,7 +13,25 @@ parse_flume_proto_test() ->
 		    messages = [#avro_message{} | _],
 		    json     = <<_,_/binary>>}, Proto).
 
-call_email_server_test_() ->
+call_email_eserver_test() ->
+    eavro_rpc_srv:start(
+      eavro_rpc_test_email_handler,self(),2525,1),
+    {ok, P} = eavro_rpc_fsm:start_link(
+		"localhost", 2525, "../jtest/src/main/avro/mail.avpr"),
+    OkRet = eavro_rpc_fsm:call(
+	      P, send, 
+	      _Args = [ _Rec = [ <<"TOOOO">>, <<"FROOOOOM">>, <<"HELLO">> ] ]),
+    ?assertMatch({ok, <<"OK!">>}, OkRet),
+    ErrRet = eavro_rpc_fsm:call(
+	       P, send, 
+	       _Args1 = [ _Rec1 = [ <<"TOOOO">>, <<"FROOOOOM">>, <<"EXIT">> ] ]),
+    ?assertMatch({error, {string, <<"Server error",_/binary>>} }, ErrRet),
+    ErrRet1 = eavro_rpc_fsm:call(
+		P, send, 
+		_Args2 = [ _Rec2 = [ <<"TOOOO">>, <<"FROOOOOM">>, <<"ERROR">> ] ]),
+    ?assertMatch({error, {string, <<"ERROR!">>} }, ErrRet1).
+
+call_email_jserver_test_() ->
     {timeout, 30, 
      fun()->
 	     Port = erlang:open_port(
