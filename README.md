@@ -201,7 +201,31 @@ To implement Avro RPC server on Erlang language, consider to implement a behavio
 ```erlang
 eavro_rpc_srv:start(your_rpc_handler,_InitArgs = [], _Port = 2525, _PoolSize = 1).
 ```
-The server framework is implemented using Ranch application.
+The server framework is implemented using Ranch application. 
+##### RPC handler example
+```erlang
+-module(my_email_handler).
+
+-behaviour(eavro_rpc_handler).
+-include("eavro.hrl").
+
+-export([get_protocol/0,
+         init/1,
+         handle_call/2]).
+
+-record(state, { }).
+
+get_protocol() -> eavro_rpc_proto:parse_protocol_file("mail.avpr").
+
+init([]) ->
+    {ok, #state{} }.
+
+handle_call( {#avro_message{ name = <<"send">> },
+              [ Record = [_From, _To, Body] ] = _Args},
+             #state{} = _State ) ->
+    io:format("Body '~s` sent!", [Record]),
+    {ok, "Ok"}.
+```
 
 ## TODO
 
