@@ -39,7 +39,17 @@
 
 -define(echo(M), io:format("~p~n", [M])).
 
-
+%%
+%% Start an Avro RPC Server. The callback module 
+%% defines which and how protocol will be served. 
+%% Callback module must implement a behaviour 
+%% 'eavro_rpc_handler'.
+%% See also 'eavro_rpc_handler.erl'.
+-spec start(CallbackModule   :: module(),
+	    CallbackOpts     :: any(),
+	    ListenPort       :: non_neg_integer(),
+	    AcceptorPoolSize :: non_neg_integer()) ->
+		   {ok, pid()} | {error, badarg}.
 start(CallbackModule,
       CallbackOpts,
       Port, 
