@@ -13,7 +13,7 @@
 -behaviour(ranch_protocol).
 
 %% API
--export([start/0, start/4, start_link/4]).
+-export([start/4, start_link/4]).
 
 %% gen_server callbacks
 -export([init/1, 
@@ -39,10 +39,6 @@
 
 -define(echo(M), io:format("~p~n", [M])).
 
-start() ->
-    start(eavro_rpc_test_email_handler,self(),
-	  2525,
-	  1).
 
 start(CallbackModule,
       CallbackOpts,
@@ -50,7 +46,10 @@ start(CallbackModule,
       NumAcceptors) when is_atom(CallbackModule), 
 			 is_integer(Port), 
 			 is_integer(NumAcceptors) ->
-    ok = application:start(ranch),
+    case application:start(ranch) of
+	ok                              -> ok;
+	{error,{already_started,ranch}} -> ok
+    end,
     Proto = CallbackModule:get_protocol(),
     ranch:start_listener(
       ?MODULE, NumAcceptors,
