@@ -3,8 +3,7 @@ Apache Avro encoder/decoder
 
 [![Build Status](https://secure.travis-ci.org/SIfoxDevTeam/eavro.png)](https://travis-ci.org/SIfoxDevTeam/eavro)
 
-Supported primitives
---------------------
+## Supported primitives
 
  * null: no value
  * boolean: a binary value
@@ -15,19 +14,20 @@ Supported primitives
  * bytes: sequence of 8-bit unsigned bytes
  * string: unicode character sequence
 
-Supported complex types
------------------------
-
+## Supported complex types
  * records
  * enum
  * map
  * fixed
  * union
+ * array
 
-Schema example
---------------
+## Usage
 
-<pre>
+### Encoding/decoding
+
+Let file `schema.avsc` contain:
+```json
 {
     "type": "record",
     "name": "User",
@@ -37,19 +37,15 @@ Schema example
         {"name": "verified", "type": "boolean", "default": "false"}
     ]
 }
-</pre>
-
-Usage
------
-
-Encode record according to its schema:
+```
+Then, encode record according to the schema above as:
 
 ```erlang
 
 Erlang R16B01 (erts-5.10.2) [source] [64-bit] [smp:2:2] [async-threads:10] [kernel-poll:false]
 
 Eshell V5.10.2  (abort with ^G)
-1> Schema = eavro:read_schema("schema.avcs").
+1> Schema = eavro:read_schema("schema.avsc").
 {avro_record,<<"User">>,
              [{<<"username">>,string},
               {<<"age">>,int},
@@ -77,6 +73,7 @@ Encode value of union type require explicit type specification when encoding:
 8> eavro:decode(#avro_array{ items = [int, string, RecType] }, <<6,0,2,2,8,98,108,97,104,4,178,199,4,0>>).            
 {[[1,<<"blah">>,[37337]]],<<>>}
 ```
+### Object Container Files
 
 Read data from Avro binary file in an OCF format:
 ```erlang
@@ -179,7 +176,8 @@ ok
 [[<<"Optimus">>,<<"Prime">>,134234132],
  [<<"Nexus">>,<<"Prime">>,3462547657]]
 ```
-
+### Avro Protocol
+#### Client
 Making an Avro RPC calls:
 
 ```erlang
@@ -198,22 +196,42 @@ $ mkdir avro_tools
 $ (cd avro_tools && wget http://apache-mirror.rbc.ru/pub/apache/avro/avro-1.7.7/java/avro-tools-1.7.7.jar)
 $ java -jar avro_tools/avro-tools-1.7.7.jar idl test/data/flume.avdl | python -mjson.tool > flume.avpr
 ```
-
+#### Server
 To implement Avro RPC server on Erlang language, consider to implement a behaviour `eavro_rpc_handler`. Then just start it as follows:
 ```erlang
 eavro_rpc_srv:start(your_rpc_handler,_InitArgs = [], _Port = 2525, _PoolSize = 1).
 ```
-The server framework is implemented using Ranch application.
+The server framework is implemented using Ranch application. 
+##### RPC handler example
+```erlang
+-module(my_email_handler).
 
-ToDo
-----
+-behaviour(eavro_rpc_handler).
+-include("eavro.hrl").
+
+-export([get_protocol/0,
+         init/1,
+         handle_call/2]).
+
+-record(state, { }).
+
+get_protocol() -> eavro_rpc_proto:parse_protocol_file("mail.avpr").
+
+init([]) ->
+    {ok, #state{} }.
+
+handle_call( {#avro_message{ name = <<"send">> },
+              [ Record = [_From, _To, Body] ] = _Args},
+             #state{} = _State ) ->
+    io:format("Body '~s` sent!", [Record]),
+    {ok, "Ok"}.
+```
+
+## TODO
 
  * Add specs, tests and documentation
- * Add data writer/reader functions
-   * Write OCF files
-   * Support codecs (snappy) when reading and writing data from OCF
+ * Support codecs (snappy) when reading and writing data from OCF
 
-License
--------
+## License
 
 All parts of this software are distributed under the Apache License, Version 2.0 terms.

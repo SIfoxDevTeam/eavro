@@ -153,8 +153,9 @@ handle_info(_Info = {tcp, Sock, Data},
 	{cont, Cont1} -> 
 	    {next_state, CurrState, State#state{ cont = Cont1 } };
 	{ [{0 = Ser0, [ HeadFrame | Frames ]} = _HeadSeq | Sequences], {cont, Cont1} } ->
-	    { _HSResp, HeadFrameTail } =
+	    { _HSResp = [Match|_], HeadFrameTail } =
 		eavro_rpc_proto:decode_handshake_response(HeadFrame),
+	    Match == 'NONE' andalso exit(server_not_support_protocol),
 	    Sequences1 = [{Ser0, [HeadFrameTail|Frames]} | Sequences],
 	    State1 = reply_to_clients(Sequences1, State),
 	    {next_state, main, State1#state{ cont = Cont1 }}

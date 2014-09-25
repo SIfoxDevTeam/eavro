@@ -18,7 +18,7 @@ clean:
 
 jtest:
 	(cd jtest && mvn compile assembly:single)
-test: jtest
+test: 
 	@$(REBAR) xref eunit skip_deps=true
 
 run: compile
