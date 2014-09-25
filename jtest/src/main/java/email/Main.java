@@ -34,20 +34,51 @@ public class Main {
 
     private static Server server;
 
-    private static void startServer() throws IOException {
-        server = new NettyServer(new SpecificResponder(Mail.class, new MailImpl()), new InetSocketAddress(65111));
+    private static void startServer(int port) throws IOException {
+        server = new NettyServer(new SpecificResponder(Mail.class, new MailImpl()), new InetSocketAddress(port));
         // the server implements the Mail protocol (MailImpl)
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
+	if(args.length < 2)
+	    throw new Exception("Lack of arguments. Expected at least two args: <mode> <port>, where <mode> = server | client ");
+	String mode = args[0];
+	int port = Integer.parseInt(args[1]);
+        if("server".equals(mode))
+	    asServer(port, args);
+	else if ("client".equals(mode))
+	    asClient(port, args);
+	else throw new Exception("Bad mode: " + mode + ". Expected: server | client .");
 
-        System.out.println("Starting server");
+	System.exit(0);
+    }
 
-        startServer();
-        System.out.println("Server started");
+    private static void asServer(int port, String[] args) throws IOException {
+	System.out.println("Starting server");
+
+        startServer(port);
+
+	System.out.println("*DONE*");
 
 	System.out.flush();
 	System.in.read();
-	System.exit(1);
+    }
+
+    private static void asClient(int port, String[] args) throws IOException {
+	NettyTransceiver client = new NettyTransceiver(new InetSocketAddress(port));
+        // // client code - attach to the server and send a message
+        Mail proxy = (Mail) SpecificRequestor.getClient(Mail.class, client);
+        System.out.println("Client built, got proxy");
+
+         // fill in the Message record and send it
+         Message message = new Message();
+         message.setTo(new Utf8("TTTOOO"));
+         message.setFrom(new Utf8("FFFROMMM"));
+         message.setBody(new Utf8("MSGMSGMSG"));
+         System.err.println("Calling proxy.send with message:  " + message.toString());
+         System.err.println("Result: " + proxy.send(message));
+	 System.out.println("*DONE*");
+       // cleanup
+         client.close();
     }
 }
