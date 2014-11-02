@@ -183,6 +183,7 @@ type_to_jsx(B) when is_binary(B) ->
 	<<"double">>  -> ok;
 	<<"string">>  -> ok;
 	<<"bytes">>   -> ok;
+	<<"float">>   -> ok;
 	BadType       -> exit({bad_simple_type, BadType})
     end,
     B.
@@ -209,6 +210,7 @@ parse_type(Simple, Context) when is_binary(Simple) ->
 	    <<"double">>  -> double;
 	    <<"string">>  -> string;
 	    <<"bytes">>   -> bytes;
+	    <<"float">>   -> float;
 	    BadType       -> 
 		case dict:find(binary_to_atom(BadType, latin1), Context) of
 		    {ok, T} -> T;
