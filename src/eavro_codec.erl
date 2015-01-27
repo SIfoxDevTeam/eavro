@@ -14,6 +14,8 @@
 -define(echo(V), io:format("~p~n",[V])).
 
 
+
+
 %% primitives
 encode(int, Int) ->
     Z = zigzag_encode(int, Int),
@@ -33,9 +35,21 @@ encode(boolean, true) -> <<1>>;
 encode(boolean, false) -> <<0>>;
 encode(null, _Any) -> <<>>;
 
+
+
 %% complex data types
 encode(#avro_record{fields = Fields}, Data) ->
-    [encode(Type, Value) || {{_Name, Type}, Value} <- lists:zip(Fields, Data)];
+    case Data of
+        [[_|_]|_]->
+            %unpack deep lists
+            FieldDataList=[{#avro_record{fields=Fields},X} || X <-Data],
+            [encode(Type, Value) || {Type, Value} <- FieldDataList];
+        _ ->
+            [encode(Type, Value) || {{_Name, Type}, Value} <- lists:zip(Fields, Data)]
+    end;
+
+
+
 encode(#avro_enum{symbols = Symbols}, Data) ->
     ZeroBasedIndex = index_of(Data, Symbols) - 1,
     encode(int,ZeroBasedIndex);
@@ -67,7 +81,7 @@ encode_blocks(Type, Data, Encoder) when is_list(Data) ->
 	     [ Encoder(Type, V) || V <- Data],
 	     <<0>> ]
     end.
-
+ 
 
 index_of(Item, List) -> index_of(Item, List, 1).
 
