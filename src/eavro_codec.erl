@@ -67,21 +67,28 @@ encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
     encode_blocks(Type, Data, fun encode/2);
 encode(Union, {Type, Data}) when is_list(Union) ->
     try 
-	I = index_of(Type, Union) - 1,
+	I = index_of(Type, Union) - 1, 
 	[encode(long, I), encode(Type, Data)]
     catch
 	_:not_found -> exit({union_mismatch, Union, Type})
     end.
 
 encode_blocks(Type, Data, Encoder) when is_list(Data) ->
-    Count = length(Data),
+    case Data of
+        [[_|_]|_]->
+            [DeepList]=Data,
+            Count=length(DeepList);
+        _->
+            Count = length(Data)
+    end,
     if Count == 0 -> <<0>>;
        true -> 
 	    [encode(long, Count), 
 	     [ Encoder(Type, V) || V <- Data],
 	     <<0>> ]
     end.
- 
+
+
 
 index_of(Item, List) -> index_of(Item, List, 1).
 
