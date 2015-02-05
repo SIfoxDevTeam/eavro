@@ -23,7 +23,9 @@
 	 code_change/4]).
 
 %% gen_fsm states
--export([handshake_start/2,
+-export([connect/2,
+	 connect/3,
+	 handshake_start/2,
 	 handshake_start/3,
 	 handshake_finish/2,
 	 handshake_finish/3,
@@ -36,7 +38,9 @@
 
 -define(echo(V), io:format("~p|~p~n", [?LINE, V])).
 
--record(state, { proto :: #avro_proto{}, 
+-record(state, { host,
+		 port,
+		 proto :: #avro_proto{}, 
 		 socket, 
 		 cont, 
 		 serial = 0, 
@@ -47,12 +51,20 @@
 %%% API
 %%%===================================================================
 
+-type fsm_ref() :: atom() | 
+		   {atom(), node()} | 
+		   {global, any()} | 
+		   {via, atom(),atom()} | 
+		   pid().
+
 start_link(Host, Port, ProtoFilename) when is_integer(hd(ProtoFilename)) ->
     Proto = eavro_rpc_proto:parse_protocol_file(ProtoFilename),
     start_link(Host, Port, Proto);
 start_link(Host, Port, Proto) ->
     gen_fsm:start_link(?MODULE, [Host, Port, Proto], []).
 
+-spec call(FsmRef :: fsm_ref(), MethodName :: atom(), Args :: [any()]) ->
+		  {ok, Result :: any()} | {error, any()}.
 call(FsmRef, Name, Args) when is_list(Args) ->
     gen_fsm:sync_send_event(FsmRef, #call{name = Name, args = Args}).
 
@@ -61,19 +73,44 @@ call(FsmRef, Name, Args) when is_list(Args) ->
 %%%===================================================================
 
 init([Host, Port, Proto]) ->
-    {ok, Sock} = gen_tcp:connect(
-		   Host, Port, 
-		   [inet, binary,
-		    {packet, 0},
-		    {active, true},
-		    {nodelay, true},
-		    {reuseaddr, true}]),
-    {cont, Cont} = eavro_rpc_proto:decode_frame_sequences(<<>>),
-    {ok, handshake_start, 
-     #state{ socket = Sock, 
-	     proto  = Proto, 
-	     serial = 0,
-	     cont   = Cont }}.
+    ConnectFun = 
+	fun(State) ->
+		{ok, Sock} = gen_tcp:connect(
+			       Host, Port, 
+			       [inet, binary,
+				{packet, 0},
+				{active, true},
+				{nodelay, true},
+				{reuseaddr, true}]),
+		{cont, Cont} = eavro_rpc_proto:decode_frame_sequences(<<>>),
+		{next_state, handshake_start, 
+		 State#state{ socket = Sock, 
+			      proto  = Proto, 
+			      serial = 0,
+			      cont   = Cont }}
+	end,
+    gen_fsm:send_event_after(0, {connect, 0, ConnectFun}),
+    {ok, connect, #state{ host = Host, port = Port}}.
+
+%%
+%% STATE: CONNECT
+%%
+connect({connect, N, Fun}, #state{ host = Host, port = Port} = State) ->
+    try Fun(State)
+    catch
+	_:Reason ->
+	    if N rem 3 == 0 ->
+		    error_logger:error_msg(
+		      "Failed to connect to Flume/AvroAPI endpoint ~p due to: ~p~n", 
+		      [{Host, Port}, Reason]);
+	       true -> ok
+	    end,
+	    gen_fsm:send_event_after(5000, {connect, N + 1, Fun}),
+	    {next_state, connect, State}
+    end.
+
+connect(_Event = #call{}, _From, State) ->
+    {reply, {error, connecting}, connect, State}.
 
 %%
 %% STATE: HANDSHAKE-START
@@ -171,6 +208,8 @@ handle_info(_Info = {tcp, Sock, Data}, main,
     end;
 handle_info(_Info, StateName, State) ->
     {next_state, StateName, State}.
+
+
 
 reply_to_clients([], State) ->
     State;

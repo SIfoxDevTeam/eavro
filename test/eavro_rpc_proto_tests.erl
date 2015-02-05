@@ -22,6 +22,7 @@ call_email_eserver_test_() ->
       eavro_rpc_test_email_handler,self(),2525,1),
     {ok, Cli} = eavro_rpc_fsm:start_link(
 		"localhost", 2525, "../jtest/src/main/avro/mail.avpr"),
+    timer:sleep(100),
     %% 2. Do calls using 'eavro' erlang client
     ECalls = [{ Title,
        fun() ->
@@ -51,6 +52,7 @@ call_email_jserver_test_() ->
        fun() ->
 	       {ok, P} = eavro_rpc_fsm:start_link(
 			   "localhost", 65111, "../jtest/src/main/avro/mail.avpr"),
+	       timer:sleep(3000),
 	       Ret = eavro_rpc_fsm:call(
 		       P, send, 
 		       _Args = [ _Rec = [ <<"TOOOO">>, <<"FROOOOOM">>, <<"HELLO">> ] ]),
