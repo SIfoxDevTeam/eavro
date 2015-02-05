@@ -32,7 +32,7 @@
 	 main/2,
 	 main/3]).
 
--export([call/3]).
+-export([call/3, call/4]).
 
 -define(SERVER, ?MODULE).
 
@@ -66,7 +66,14 @@ start_link(Host, Port, Proto) ->
 -spec call(FsmRef :: fsm_ref(), MethodName :: atom(), Args :: [any()]) ->
 		  {ok, Result :: any()} | {error, any()}.
 call(FsmRef, Name, Args) when is_list(Args) ->
-    gen_fsm:sync_send_event(FsmRef, #call{name = Name, args = Args}).
+    gen_fsm:sync_send_event(FsmRef, #call{name = Name, args = Args}, infinity).
+
+
+-spec call(FsmRef :: fsm_ref(), MethodName :: atom(), Args :: [any()],
+	   Timeout :: non_neg_integer() | infinity) ->
+		  {ok, Result :: any()} | {error, any()}.
+call(FsmRef, Name, Args, Timeout) when is_list(Args) ->
+    gen_fsm:sync_send_event(FsmRef, #call{name = Name, args = Args}, Timeout).
 
 %%%===================================================================
 %%% gen_fsm callbacks
@@ -81,7 +88,7 @@ init([Host, Port, Proto]) ->
 				{packet, 0},
 				{active, true},
 				{nodelay, true},
-				{reuseaddr, true}]),
+				{reuseaddr, true}], 3000),
 		{cont, Cont} = eavro_rpc_proto:decode_frame_sequences(<<>>),
 		{next_state, handshake_start, 
 		 State#state{ socket = Sock, 
