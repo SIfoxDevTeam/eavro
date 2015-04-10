@@ -237,6 +237,8 @@ parse_type([{_,_}|_] = Complex, Context) ->
     Parser(Complex, Context);
 parse_type([B|_] = Union, Context) when is_binary(B) -> 
     parse_union(Union, Context);
+parse_type([ [{B,_}|_]= _ComplexType |_] = Union, Context) when is_binary(B) -> 
+    parse_union(Union, Context);
 parse_type(_Bad,_) -> exit({badarg, _Bad}).
 
 

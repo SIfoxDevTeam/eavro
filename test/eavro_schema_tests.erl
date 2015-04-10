@@ -38,3 +38,12 @@ schema_parse_encode_parse_test() ->
     Schema = eavro:read_schema("../test/data/transformer.avsc"),
     SchemaJson = eavro:encode_schema(Schema),
     ?assertMatch(Schema, eavro:parse_schema(SchemaJson)).
+
+'ISSUE_11_test'() ->
+    #avro_record{ 
+       name   = Name,
+       fields = Fields} = eavro:read_schema("../test/data/issue_11.avsc"),
+    ?assertMatch('Click', Name),
+    ?assertMatch(
+       [{avro_map,string},null],
+       proplists:get_value(<<"http_headers">>, Fields)).

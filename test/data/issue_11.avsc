@@ -1,0 +1,13 @@
+{
+    "type": "record",
+    "namespace": "com.example.foo",
+    "name": "Click",
+    "fields": [
+        {"name": "url", "type": "string"},
+        {"name": "clicked_at", "type": "string"},
+        {"name": "remote_ip","type": "string"},
+        {"name": "http_headers", "type": [{"type": "map", "values": "string"}, "null"]},
+        {"name": "request_type", "type": ["string", "null"]},
+        {"name": "destination", "type": "string"}
+    ]
+}
