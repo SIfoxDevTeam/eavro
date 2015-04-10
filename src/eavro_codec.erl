@@ -51,6 +51,8 @@ encode(#avro_map{ values = ValuesType }, Data) when is_list(Data) ->
       end );
 encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
     encode_blocks(Type, Data, fun encode/2);
+encode(Union, null) when is_list(Union) ->
+    encode(Union, {null, null});
 encode(Union, {Type, Data}) when is_list(Union) ->
     try 
 	I = index_of(Type, Union) - 1,
@@ -132,7 +134,9 @@ decode(Union, Buff, Hook) when is_atom(hd(Union)) ->
     {Idx, Buff1} = decode(long, Buff),
     Type = lists:nth(Idx + 1, Union),
     {Val, Buff2} = decode(Type, Buff1, Hook),
-    { {Type, Val}, Buff2}.
+    { if Type == null -> null;
+	 true -> {Type, Val}
+      end, Buff2}.
 
 
 map_entry_decoder(Type, Buff, Hook) ->
