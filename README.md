@@ -227,6 +227,24 @@ handle_call( {#avro_message{ name = <<"send">> },
     {ok, "Ok"}.
 ```
 
+### Working with Kafka
+
+#### Encode
+
+To include schema id to encoded message before sending it to kafka, you should prepend encoded message with 'magic byte' and schema id as 4 bytes:
+```
+MessageToKafka = <<0, SchemaId:32, EncodedMessage/binary>>.
+```
+
+#### Decode
+
+To decode message which contains schema id, you should skip first 5 bytes before decoding it:
+```
+<<MagicByteAndSchemaId:5/bytes, EncodedMessage/binary>> = MessageFromKafka.
+eavro:decode(Schema, EncodedMessage).
+```
+
+
 ## TODO
 
  * Add specs, tests and documentation
