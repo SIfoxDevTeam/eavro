@@ -3,3 +3,4 @@ deps
 .eunit
 /avro_tools/
 eavro.plt
+.rebar

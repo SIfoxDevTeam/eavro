@@ -31,6 +31,7 @@ run_srv: compile
 avro_tools:
 	@[ -d avro_tools ] || mkdir avro_tools
 	(cd avro_tools && wget $(APACHE_DOWNLOAD_SITE)/avro-tools-1.7.7.jar && wget $(APACHE_DOWNLOAD_SITE)/avro-1.7.7.jar)
+
 generate_avro_data: avro_tools
 	java -jar avro_tools/avro-tools-1.7.7.jar fromjson test/data/transformers.json --schema-file test/data/transformer.avsc > test/data/transformers.avro
 
