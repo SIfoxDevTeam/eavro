@@ -4,3 +4,4 @@ deps
 /avro_tools/
 eavro.plt
 .rebar
+_build
