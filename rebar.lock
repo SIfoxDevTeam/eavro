@@ -1,0 +1,12 @@
+[{<<"jsx">>,
+  {git,"https://github.com/talentdeficit/jsx.git",
+       {ref,"d011411c23e9f8c29d98aa1b7a50ddf9709b6a60"}},
+  0},
+ {<<"ranch">>,
+  {git,"https://github.com/extend/ranch.git",
+       {ref,"22e0f96a6ca9288dca338ffec53f15da06abd839"}},
+  0},
+ {<<"zlists">>,
+  {git,"https://github.com/vjache/erlang-zlists.git",
+       {ref,"6a7a626b52ab004f152792877b83f09dfaea07d5"}},
+  0}].

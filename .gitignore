@@ -5,3 +5,5 @@ deps
 eavro.plt
 .rebar
 _build
+rebar3.crashdump
+test/transformers*
