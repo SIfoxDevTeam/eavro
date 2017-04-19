@@ -4,6 +4,12 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+std_hook(#avro_array{}, Blocks) ->
+    [ Val || Block <- Blocks, Val <- Block ];
+std_hook(#avro_map{}, Blocks) ->
+    [ Val || Block <- Blocks, Val <- Block ];
+std_hook(_,V) -> V.
+
 parse_twitter_ocf_test() ->
     Data = eavro:read_ocf("test/data/twitter.avro"),
     ?assertMatch(
@@ -59,7 +65,7 @@ ocf_read_write_read_test_() ->
 			    F2,
 			    Schema, ZInstances, Opts)
 		  end,
-		  fun eavro_util:std_hook/2 ),
+		  fun std_hook/2 ),
 		Cnt = eavro_ocf_zcodec:read_ocf_with(
 		  F2,
 		  fun(_Schema, ZInstances) ->

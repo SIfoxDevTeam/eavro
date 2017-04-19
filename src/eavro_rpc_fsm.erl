@@ -1,25 +1,18 @@
-%%%-------------------------------------------------------------------
-%%% @author Vorobyov Vyacheslav <vjache@gmail.com>
-%%% @copyright (C) 2014, Vorobyov Vyacheslav
-%%% @doc
-%%%
-%%% @end
-%%%-------------------------------------------------------------------
 -module(eavro_rpc_fsm).
 
--include("eavro.hrl").
-
 -behaviour(gen_fsm).
+
+-include("eavro.hrl").
 
 %% API
 -export([start_link/3]).
 
 %% gen_fsm callbacks
--export([init/1, 
+-export([init/1,
 	 handle_event/3,
-	 handle_sync_event/4, 
-	 handle_info/3, 
-	 terminate/3, 
+	 handle_sync_event/4,
+	 handle_info/3,
+	 terminate/3,
 	 code_change/4]).
 
 %% gen_fsm states
@@ -34,16 +27,12 @@
 
 -export([call/3, call/4]).
 
--define(SERVER, ?MODULE).
-
--define(echo(V), io:format("~p|~p~n", [?LINE, V])).
-
 -record(state, { host,
 		 port,
-		 proto :: #avro_proto{}, 
-		 socket, 
-		 cont, 
-		 serial = 0, 
+		 proto :: #avro_proto{},
+		 socket,
+		 cont,
+		 serial = 0,
 		 reply_list = [] }).
 -record(call, { name, args}).
 
@@ -51,10 +40,10 @@
 %%% API
 %%%===================================================================
 
--type fsm_ref() :: atom() | 
-		   {atom(), node()} | 
-		   {global, any()} | 
-		   {via, atom(),atom()} | 
+-type fsm_ref() :: atom() |
+		   {atom(), node()} |
+		   {global, any()} |
+		   {via, atom(),atom()} |
 		   pid().
 
 start_link(Host, Port, ProtoFilename) when is_integer(hd(ProtoFilename)) ->
@@ -80,19 +69,19 @@ call(FsmRef, Name, Args, Timeout) when is_list(Args) ->
 %%%===================================================================
 
 init([Host, Port, Proto]) ->
-    ConnectFun = 
+    ConnectFun =
 	fun(State) ->
 		{ok, Sock} = gen_tcp:connect(
-			       Host, Port, 
+			       Host, Port,
 			       [inet, binary,
 				{packet, 0},
 				{active, true},
 				{nodelay, true},
 				{reuseaddr, true}], 3000),
 		{cont, Cont} = eavro_rpc_proto:decode_frame_sequences(<<>>),
-		{next_state, handshake_start, 
-		 State#state{ socket = Sock, 
-			      proto  = Proto, 
+		{next_state, handshake_start,
+		 State#state{ socket = Sock,
+			      proto  = Proto,
 			      serial = 0,
 			      cont   = Cont }}
 	end,
@@ -108,7 +97,7 @@ connect({connect, N, Fun}, #state{ host = Host, port = Port} = State) ->
 	_:Reason ->
 	    if N rem 3 == 0 ->
 		    error_logger:error_msg(
-		      "Failed to connect to Flume/AvroAPI endpoint ~p due to: ~p~n", 
+		      "Failed to connect to Flume/AvroAPI endpoint ~p due to: ~p~n",
 		      [{Host, Port}, Reason]);
 	       true -> ok
 	    end,
@@ -123,15 +112,15 @@ connect(_Event = #call{}, _From, State) ->
 %% STATE: HANDSHAKE-START
 %%
 
-handshake_start(_Event = #call{ name = Name, args = Args}, 
-		#state{socket  = Sock, serial = Ser, 
-		       proto = #avro_proto{json = Json} = Proto} = State) 
+handshake_start(_Event = #call{ name = Name, args = Args},
+		#state{socket  = Sock, serial = Ser,
+		       proto = #avro_proto{json = Json} = Proto} = State)
   when is_list(Args) ->
     HReq = eavro:encode(
-	     eavro_rpc_proto:schema_HandshakeRequest(), 
-	     [erlang:md5(Json), 
+	     eavro_rpc_proto:schema_HandshakeRequest(),
+	     [erlang:md5(Json),
 	      {string, Json},
-	      <<0:128>>, 
+	      <<0:128>>,
 	      {#avro_map{ values = bytes}, []}]),
     EncCall = eavro_rpc_proto:encode_call(Proto, Name, Args),
     ok = gen_tcp:send(
@@ -145,9 +134,9 @@ handshake_start(Event = #call{}, From, State) ->
 %%
 %% STATE: HANDSHAKE-FINISH
 %%
-handshake_finish(_Event = #call{ name = Name, args = Args}, 
-		#state{socket  = Sock, serial = Ser, 
-		       proto = Proto} = State) 
+handshake_finish(_Event = #call{ name = Name, args = Args},
+		#state{socket  = Sock, serial = Ser,
+		       proto = Proto} = State)
   when is_list(Args) ->
     EncCall = eavro_rpc_proto:encode_call(Proto, Name, Args),
     ok = gen_tcp:send(
@@ -161,8 +150,8 @@ handshake_finish(Event = #call{}, From, State) ->
 %%
 %% STATE: MAIN
 %%
-main(_Event = #call{ name = Name, args = Args}, 
-     #state{socket  = Sock, serial = Ser, 
+main(_Event = #call{ name = Name, args = Args},
+     #state{socket  = Sock, serial = Ser,
 	    proto = Proto} = State) when is_list(Args) ->
     EncCall = eavro_rpc_proto:encode_call(Proto, Name, Args),
     ok = gen_tcp:send(
@@ -174,14 +163,14 @@ main(Event = #call{}, From, State) ->
 
 track_caller(Caller,
 		  #call{ name = Name},
-		  #state{serial = Ser, 
+		  #state{serial = Ser,
 			 reply_list =  RL} = State) ->
-    State#state{serial = Ser, 
+    State#state{serial = Ser,
 		reply_list = [{Ser, Caller, Name} | RL] }.
 
 
 %%
-%% 
+%%
 %%
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
@@ -190,11 +179,11 @@ handle_sync_event(_Event, _From, StateName, State) ->
     Reply = ok,
     {reply, Reply, StateName, State}.
 
-handle_info(_Info = {tcp, Sock, Data}, 
-	    handshake_finish = CurrState, 
+handle_info(_Info = {tcp, Sock, Data},
+	    handshake_finish = CurrState,
 	    #state{socket = Sock, cont = Cont} = State) ->
     case Cont(Data) of
-	{cont, Cont1} -> 
+	{cont, Cont1} ->
 	    {next_state, CurrState, State#state{ cont = Cont1 } };
 	{ [{0 = Ser0, [ HeadFrame | Frames ]} = _HeadSeq | Sequences], {cont, Cont1} } ->
 	    { _HSResp = [Match|_], HeadFrameTail } =
@@ -204,10 +193,10 @@ handle_info(_Info = {tcp, Sock, Data},
 	    State1 = reply_to_clients(Sequences1, State),
 	    {next_state, main, State1#state{ cont = Cont1 }}
     end;
-handle_info(_Info = {tcp, Sock, Data}, main, 
+handle_info(_Info = {tcp, Sock, Data}, main,
 	    #state{socket = Sock, cont = Cont} = State) ->
     case Cont(Data) of
-	{cont, Cont1} -> 
+	{cont, Cont1} ->
 	    {next_state, main, State#state{ cont = Cont1 } };
 	{ Sequences, {cont, Cont1} } ->
 	    State1 = reply_to_clients(Sequences, State),
@@ -220,12 +209,12 @@ handle_info(_Info, StateName, State) ->
 
 reply_to_clients([], State) ->
     State;
-reply_to_clients([ {Ser, Frames} | Seqs], 
+reply_to_clients([ {Ser, Frames} | Seqs],
 		 #state{ proto = Proto, reply_list = Clis } = State) ->
     case lists:keytake(Ser, 1, Clis) of
 	false -> Clis1 = Clis;
-	{value, {Ser, Caller, MessageName}, Clis1 } -> 
-	    #avro_message{ return = RetType} = 
+	{value, {Ser, Caller, MessageName}, Clis1 } ->
+	    #avro_message{ return = RetType} =
 		eavro_rpc_proto:get_message(Proto, MessageName),
 	    Resp = eavro_rpc_proto:decode_call_response(RetType, iolist_to_binary(Frames)),
 	    gen_fsm:reply(Caller, Resp)
@@ -244,7 +233,7 @@ make_frame(Data) ->
     Size = iolist_size(Data),
     [<<Size:32>>, Data].
 
-make_frame_sequence(Serial, EncodedCalls) when is_integer(Serial), 
+make_frame_sequence(Serial, EncodedCalls) when is_integer(Serial),
 					       is_list(EncodedCalls) ->
     SequenceLength = length(EncodedCalls),
     [<<Serial:32, SequenceLength:32>> | [ make_frame(Call) || Call <- EncodedCalls ] ].

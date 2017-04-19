@@ -1,32 +1,24 @@
-%%%-------------------------------------------------------------------
-%%% @author Vorobyov Vyacheslav <vjache@gmail.com>
-%%% @copyright (C) 2014, Vorobyov Vyacheslav
-%%% @doc
-%%%
-%%% @end
-%%%-------------------------------------------------------------------
 -module(eavro_rpc_srv).
-
--include("eavro.hrl").
 
 -behaviour(gen_server).
 -behaviour(ranch_protocol).
+
+-include("eavro.hrl").
 
 %% API
 -export([start/4, start_link/4]).
 
 %% gen_server callbacks
--export([init/1, 
-	 handle_call/3, 
-	 handle_cast/2, 
+-export([init/1,
+	 handle_call/3,
+	 handle_cast/2,
 	 handle_info/2,
-	 terminate/2, 
+	 terminate/2,
 	 code_change/3]).
 
--define(SERVER, ?MODULE).
 -define(TIMEOUT, 30000).
 
--record(state, {socket, 
+-record(state, {socket,
 		transport,
 		proto :: #avro_proto{},
 		cont,
@@ -35,14 +27,9 @@
 		c_module :: atom(),
 		c_state :: any()}).
 
-%% API.
-
--define(echo(M), io:format("~p~n", [M])).
-
-%%
-%% Start an Avro RPC Server. The callback module 
-%% defines which and how protocol will be served. 
-%% Callback module must implement a behaviour 
+%% Start an Avro RPC Server. The callback module
+%% defines which and how protocol will be served.
+%% Callback module must implement a behaviour
 %% 'eavro_rpc_handler'.
 %% See also 'eavro_rpc_handler.erl'.
 -spec start(CallbackModule   :: module(),
@@ -52,9 +39,9 @@
 		   {ok, pid()} | {error, badarg}.
 start(CallbackModule,
       CallbackOpts,
-      Port, 
-      NumAcceptors) when is_atom(CallbackModule), 
-			 is_integer(Port), 
+      Port,
+      NumAcceptors) when is_atom(CallbackModule),
+			 is_integer(Port),
 			 is_integer(NumAcceptors) ->
     case application:start(ranch) of
 	ok                              -> ok;
@@ -64,7 +51,7 @@ start(CallbackModule,
     ranch:start_listener(
       ?MODULE, NumAcceptors,
       ranch_tcp, [{port, Port}],
-      ?MODULE, 
+      ?MODULE,
       [{proto, Proto},
        {callback_module, CallbackModule},
        {callback_opts, CallbackOpts}]).
@@ -75,7 +62,7 @@ start_link(Ref, Socket, Transport, Opts) ->
 
 %% gen_server.
 init({Ref, Socket, Transport, Opts}) ->
-    #avro_proto{} = Proto = 
+    #avro_proto{} = Proto =
 	proplists:get_value(proto, Opts),
     {CModule, CState} = callback_init(Opts),
     ok = proc_lib:init_ack({ok, self()}),
@@ -84,31 +71,31 @@ init({Ref, Socket, Transport, Opts}) ->
     {cont, Cont} = eavro_rpc_proto:decode_frame_sequences(<<>>),
     gen_server:enter_loop(
       ?MODULE, [],
-      #state{ socket    = Socket, 
-	      transport = Transport, 
+      #state{ socket    = Socket,
+	      transport = Transport,
 	      proto     = Proto,
 	      cont      = Cont,
 	      c_module  = CModule,
 	      c_state   = CState},
       ?TIMEOUT).
 
-handle_info({tcp, Soc, Data}, 
+handle_info({tcp, Soc, Data},
 	    #state{ socket     = Soc,
 		    proto      = Proto,
 		    handshaked = Handshaked,
 		    cont       = Cont } = State) ->
     active_once(State),
     case Cont(Data) of
-	{cont, Cont1} -> 
+	{cont, Cont1} ->
 	    State1 = State;
-	{ [{Ser0, [ HeadFrame | Frames ]} = _HeadSeq | Sequences] = AsIs, 
+	{ [{Ser0, [ HeadFrame | Frames ]} = _HeadSeq | Sequences] = AsIs,
 	  {cont, Cont1} } ->
 	    case Handshaked of
 		false ->
 		    { _HSReq, HeadFrameTail } =
 			eavro_rpc_proto:decode_handshake_request(HeadFrame),
 		    HRes = eavro_rpc_proto:encode_handshake_response(Proto),
-		    [{Ser0, Fs0} | Seqs] = 
+		    [{Ser0, Fs0} | Seqs] =
 			do_calls(
 			  [{Ser0, [HeadFrameTail|Frames]} | Sequences],
 			  State),
@@ -117,51 +104,51 @@ handle_info({tcp, Soc, Data},
 		    Replies = do_calls( AsIs, State)
 	    end,
 	    [ tcp_reply(
-		State, 
+		State,
 		make_frame_sequence(Ser, Fs)) || {Ser, Fs} <- Replies ],
 	    State1 = State#state{ handshaked = true}
     end,
     {noreply, State1#state{ cont = Cont1 } };
 handle_info({tcp_closed, _Socket}, State) ->
 		   {stop, normal, State};
-handle_info({tcp_error, _, Reason}, 
+handle_info({tcp_error, _, Reason},
 	    State)          -> {stop, Reason, State};
 handle_info(timeout, State) -> {stop, normal, State};
 handle_info(_Info, State)   -> {stop, normal, State}.
 
 do_calls([], _State) ->
     [];
-do_calls([ {Ser, Frames} | Seq], 
+do_calls([ {Ser, Frames} | Seq],
 	 #state{ proto = Proto } = State) ->
-    {{_MsgSchema, _Args} = Call, Rest} = 
+    {{_MsgSchema, _Args} = Call, Rest} =
 	eavro_rpc_proto:decode_call(Proto, iolist_to_binary(Frames)),
     <<>> = iolist_to_binary(Rest),
     EncResp = do_call(Call, State),
     [{Ser, [EncResp]} | do_calls(Seq, State)].
 
 do_call({#avro_message{} = MsgSchema, _Args} = Call,
-	#state{	 c_module = CMod, 
+	#state{	 c_module = CMod,
 		 c_state  = CState } = _State) ->
     Ret =
 	try CMod:handle_call(Call, CState) of
 	    {ok,    _} = R -> R;
 	    {error, _} = R -> R;
 	    Bad -> {error, iolist_to_binary(
-			     io_lib:format("Server error[1]: ~p", 
+			     io_lib:format("Server error[1]: ~p",
 					   [{handler_bad_ret,Bad}]))}
 	catch _:Reason ->
 		{error, iolist_to_binary(
-			  io_lib:format("Server error[2]: ~p", 
+			  io_lib:format("Server error[2]: ~p",
 					[{handler_exit, Reason}]))}
 	end,
     try eavro_rpc_proto:encode_response(MsgSchema, Ret)
-    catch 
+    catch
 	_:Reason1 ->
 	    eavro_rpc_proto:encode_response(
-	      MsgSchema, 
-	      {error, 
+	      MsgSchema,
+	      {error,
 	       iolist_to_binary(
-		 io_lib:format("Server error[3]: ~p", 
+		 io_lib:format("Server error[3]: ~p",
 			       [{handler_result_encode_failed, Reason1}]))})
     end.
 %% --------------------------------------------------------------------
@@ -184,11 +171,11 @@ callback_init(Opts) ->
     {CMod, CState}.
 
 
-active_once(#state{ socket    = Soc, 
+active_once(#state{ socket    = Soc,
 		    transport = Tsp}) ->
     Tsp:setopts(Soc, [{active, once}]).
 
-tcp_reply(#state{ socket    = Soc, 
+tcp_reply(#state{ socket    = Soc,
 		    transport = Tsp}, Data) ->
     Tsp:send(Soc, Data).
 
@@ -197,7 +184,7 @@ make_frame(Data) ->
     Size = iolist_size(Data),
     [<<Size:32>>, Data].
 
-make_frame_sequence(Serial, EncodedCalls) when is_integer(Serial), 
+make_frame_sequence(Serial, EncodedCalls) when is_integer(Serial),
 					       is_list(EncodedCalls) ->
     SequenceLength = length(EncodedCalls),
     [<<Serial:32, SequenceLength:32>> | [ make_frame(Call) || Call <- EncodedCalls ] ].

@@ -1,18 +1,14 @@
 -module(eavro_codec).
 
-
 %% API
--export([ encode/2, 
-          decode/2, 
+-export([ encode/2,
+          decode/2,
           decode/3 ]).
 
--export([ varint_encode/1, 
+-export([ varint_encode/1,
           varint_decode/2 ]).
 
 -include("eavro.hrl").
-
--define(echo(V), io:format("~p~n",[V])).
-
 
 %% primitives
 encode(int, Int) ->
@@ -44,7 +40,7 @@ encode(#avro_fixed{ size = Size }, Data) ->
     Data;
 encode(#avro_map{ values = ValuesType }, Data) when is_list(Data) ->
     encode_blocks(
-      ValuesType, Data, 
+      ValuesType, Data,
       fun(T, {K,V}) ->
 	[ encode(string, K),
 	  encode(T, V) ]
@@ -54,7 +50,7 @@ encode(#avro_array{ items = Type }, Data) when is_list(Data) ->
 encode(Union, null) when is_list(Union) ->
     encode(Union, {null, null});
 encode(Union, {Type, Data}) when is_list(Union) ->
-    try 
+    try
 	I = index_of(Type, Union) - 1,
 	[encode(long, I), encode(Type, Data)]
     catch
@@ -64,8 +60,8 @@ encode(Union, {Type, Data}) when is_list(Union) ->
 encode_blocks(Type, Data, Encoder) when is_list(Data) ->
     Count = length(Data),
     if Count == 0 -> <<0>>;
-       true -> 
-	    [encode(long, Count), 
+       true ->
+	    [encode(long, Count),
 	     [ Encoder(Type, V) || V <- Data],
 	     <<0>> ]
     end.
@@ -84,15 +80,15 @@ index_of(Item, [_|Tl], Index)   -> index_of(Item, Tl, Index + 1).
 decode(Type, Buff ) ->
     decode(Type, Buff, undefined).
 
--spec decode( Type :: avro_type(), 
-              Buff :: binary() | iolist(), 
-              Hook :: undefined | decode_hook() ) -> 
+-spec decode( Type :: avro_type(),
+              Buff :: binary() | iolist(),
+              Hook :: undefined | decode_hook() ) ->
     { Value :: term(), Buff :: binary()}.
 
 decode(Type, Buff, Hook) when is_list(Buff) ->
     decode(Type, iolist_to_binary(Buff), Hook);
 decode(#avro_record{fields = Fields} = Type, Buff, Hook) ->
-    {FieldsValues, Buff1} = 
+    {FieldsValues, Buff1} =
         lists:foldl(
             fun({_FName, FType}, {Vals0,Buff0}) ->
                 {Val, Buff1} = decode(FType, Buff0, Hook),
@@ -148,18 +144,18 @@ decode_blocks(CollectionType, ItemType, Blocks, Buff, Hook, ItemDecoder)->
     %% Decode block item count
     {Count_, Buff1} = decode(long, Buff),
     %% Analyze count: there is a special behavior for count < 0
-    {Count, Buff2} = 
-	if Count_ < 0  -> 
+    {Count, Buff2} =
+	if Count_ < 0  ->
 		%% When count <0 there is a block size, which we are do not use here
 		{_BlockSize, Buff_} = decode(long, Buff1),
 		{-Count_, Buff_};
-	   true -> 
+	   true ->
 		{Count_, Buff1}
 	end,
     %% Decode block items
     {Block, Buff3} = decodeN(Count, ItemType, Buff2, Hook, ItemDecoder),
     case Block of
-	[] -> 
+	[] ->
 	    {decode_hook(Hook, CollectionType, Blocks), Buff3};
 	_  ->
 	    decode_blocks(CollectionType, ItemType,[Block|Blocks],Buff3,Hook,ItemDecoder)
@@ -231,8 +227,8 @@ varint_encode(<<B1:1, B2:7, B3:7, B4:7, B5:7, B6:7, B7:7, B8:7, B9:7, B10:7>>) -
 
 varint_decode(int, <<1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 1:1, B2:7, 0:4, B1:4, Bytes/binary>>) ->
     {<<B1:4, B2:7, B3:7, B4:7, B5:7>>, Bytes};
-varint_decode(long, <<1:1, B10:7, 1:1, B9:7, 1:1, B8:7, 1:1, B7:7, 
-                      1:1, B6:7,  1:1, B5:7, 1:1, B4:7, 1:1, B3:7, 
+varint_decode(long, <<1:1, B10:7, 1:1, B9:7, 1:1, B8:7, 1:1, B7:7,
+                      1:1, B6:7,  1:1, B5:7, 1:1, B4:7, 1:1, B3:7,
                       1:1, B2:7, 0:7, B1:1, Bytes/binary>>) ->
     {<<B1:1, B2:7, B3:7, B4:7, B5:7, B6:7, B7:7, B8:7, B9:7, B10:7>>, Bytes};
 varint_decode(Type, Bytes) ->
