@@ -1,8 +1,7 @@
-{application, eavro, [
-    {description, "Apache Avro encoder/decoder and RPC protocol"},
-    {vsn, "0.0.3"},
-    {applications, [kernel, stdlib, jsx, zlists, ranch]},
-    {maintainers, ["Artem Teslenko", "Vyacheslav Vorobyov"]},
-    {licenses, ["Apache"]},
-    {links, [{"Github", "https://github.com/SIfoxDevTeam/eavro"}]}
-]}.
+{application,eavro,
+             [{description,"Apache Avro encoder/decoder and RPC protocol"},
+              {vsn,"0.0.4"},
+              {applications,[kernel,stdlib,jsx,zlists,ranch]},
+              {maintainers,["Artem Teslenko","Vyacheslav Vorobyov"]},
+              {licenses,["Apache"]},
+              {links,[{"Github","https://github.com/SIfoxDevTeam/eavro"}]}]}.
